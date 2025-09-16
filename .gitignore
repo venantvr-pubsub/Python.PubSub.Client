@@ -163,11 +163,9 @@ temp/
 
 # Logs
 logs/
-*.log
 
 # OS generated files
 Thumbs.db
-.DS_Store
 .directory
 
 # Security
@@ -190,3 +188,4 @@ Thumbs.db
 node_modules/
 yarn.lock
 package-lock.json
+/.claude/

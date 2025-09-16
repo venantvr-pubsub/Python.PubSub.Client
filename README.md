@@ -28,12 +28,12 @@ A simple, robust, and production-ready WebSocket Pub/Sub client for Python, buil
 pip install python-pubsub-client
 ```
 
-### From Source
+### From Source (Production)
 
 ```bash
 git clone https://github.com/venantvr/Python.PubSub.Client.git
 cd Python.PubSub.Client
-pip install -e .
+pip install .
 ```
 
 ### Development Installation
@@ -41,15 +41,36 @@ pip install -e .
 ```bash
 git clone https://github.com/venantvr/Python.PubSub.Client.git
 cd Python.PubSub.Client
+
+# Install in editable mode with development dependencies
 make dev
+# Or manually:
+pip install -e ".[dev]"
 ```
+
+## ⚙️ Configuration
+
+The client can be configured using environment variables. Copy `.env.example` to `.env` and adjust the values:
+
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+Key configuration options:
+- `PUBSUB_SERVER_URL`: WebSocket server URL (default: `http://localhost:5000`)
+- `PUBSUB_CONSUMER_NAME`: Client identifier (default: `demo-client`)
+- `PUBSUB_TOPICS`: Comma-separated list of topics to subscribe
+- `PUBSUB_LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+
+See `.env.example` for all available options.
 
 ## 🚀 Quick Start
 
 ### Basic Usage
 
 ```python
-from pubsub import PubSubClient
+from pubsub import PubSubClient  # Simple import thanks to __init__.py
 
 # Create client
 client = PubSubClient(
@@ -74,6 +95,7 @@ client.start()
 
 ```python
 # Publish a message to a topic
+# noinspection PyUnresolvedReferences
 client.publish(
     topic="notifications",
     message={"type": "alert", "content": "Hello World!"},
@@ -153,7 +175,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 # Install development dependencies
 make dev
 # Or manually:
-pip install -r requirements-dev.txt
+pip install -e ".[dev]"
 ```
 
 ### Running Tests
@@ -175,7 +197,7 @@ make format
 # Run linters
 make lint
 
-# Run all checks
+# Run all checks (linters and tests)
 make check
 ```
 
@@ -195,9 +217,7 @@ Python.PubSub.Client/
 ├── examples/
 │   └── simple_client.py         # Example usage
 ├── Makefile                      # Development commands
-├── pyproject.toml               # Project configuration
-├── requirements.txt             # Production dependencies
-├── requirements-dev.txt         # Development dependencies
+├── pyproject.toml               # Project configuration (single source of truth)
 └── README.md                    # This file
 ```
 
@@ -243,6 +263,10 @@ Publish a message to a topic via HTTP POST.
 ##### `start() -> None`
 
 Start the client and begin listening for messages (blocking).
+
+##### `stop() -> None`
+
+Stop the client gracefully and clean up resources.
 
 ### PubSubMessage
 

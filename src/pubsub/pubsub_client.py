@@ -1,15 +1,14 @@
 import logging
 import queue
 import threading
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 import requests
 import socketio
 
 from .pubsub_message import PubSubMessage
 
-# Configure logging for debugging
-logging.basicConfig(level=logging.INFO)
+# Get logger for this module (don't configure it)
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +29,8 @@ class PubSubClient:
             queue.Queue()
         )  # Queue for processing messages sequentially
         self.running = False
+        self._stop_event = threading.Event()
+        self._worker_thread: Optional[threading.Thread] = None
 
         # Create Socket.IO client with explicit reconnection settings
         self.sio = socketio.Client(
@@ -58,9 +59,13 @@ class PubSubClient:
         """Handle connection to the server."""
         logger.info(f"[{self.consumer}] Connected to server {self.url}")
         self.sio.emit("subscribe", {"consumer": self.consumer, "topics": self.topics})
-        if not self.running:
-            self.running = True
-            threading.Thread(target=self.process_queue, daemon=True).start()
+        self.running = True
+
+        # Start worker thread only if it's not already running
+        if self._worker_thread is None or not self._worker_thread.is_alive():
+            self._stop_event.clear()
+            self._worker_thread = threading.Thread(target=self.process_queue, daemon=True)
+            self._worker_thread.start()
 
     def on_message(self, data: Dict[str, Any]) -> None:
         """
@@ -73,8 +78,12 @@ class PubSubClient:
 
     def process_queue(self) -> None:
         """Process messages from the queue one by one."""
-        while self.running:
+        while not self._stop_event.is_set():
             try:
+                # Check if we should stop even if queue is not empty
+                if not self.running and self.message_queue.empty():
+                    break
+
                 data = self.message_queue.get(timeout=1.0)
                 topic = data["topic"]
                 message_id = data.get("message_id")
@@ -117,7 +126,7 @@ class PubSubClient:
             f"[{self.consumer}] Disconnected from server. "
             "Reconnection will be attempted automatically."
         )
-        self.running = False  # Stop queue processing until reconnected
+        self.running = False  # Pause queue processing until reconnected
 
     def on_new_message(self, data: Dict[str, Any]) -> None:
         """Handle new message events."""
@@ -152,5 +161,22 @@ class PubSubClient:
     def start(self) -> None:
         """Start the client and connect to the server."""
         logger.info(f"Starting client {self.consumer} with topics {self.topics}")
-        self.sio.connect(self.url)
-        self.sio.wait()
+        try:
+            self.sio.connect(self.url)
+            self.sio.wait()
+        finally:
+            self.stop()
+
+    def stop(self) -> None:
+        """Stop the client and clean up resources."""
+        logger.info(f"Stopping client {self.consumer}")
+        self.running = False
+        self._stop_event.set()
+
+        # Disconnect from server
+        if self.sio.connected:
+            self.sio.disconnect()
+
+        # Wait for worker thread to finish
+        if self._worker_thread and self._worker_thread.is_alive():
+            self._worker_thread.join(timeout=2.0)

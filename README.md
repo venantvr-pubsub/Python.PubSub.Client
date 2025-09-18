@@ -80,11 +80,9 @@ client = PubSubClient(
     topics=["notifications", "updates"]
 )
 
-
 # Register message handlers
 def handle_notification(message):
     print(f"Received notification: {message}")
-
 
 client.register_handler("notifications", handle_notification)
 
@@ -121,13 +119,11 @@ client = PubSubClient(
     topics=["orders", "inventory", "shipping"]
 )
 
-
 # Define custom handlers for each topic
 def process_order(message):
     order_id = message.get("order_id")
     print(f"Processing order: {order_id}")
     # Your order processing logic here
-
 
 def update_inventory(message):
     item_id = message.get("item_id")
@@ -135,12 +131,10 @@ def update_inventory(message):
     print(f"Updating inventory for item {item_id}: {quantity}")
     # Your inventory logic here
 
-
 def track_shipping(message):
     tracking_number = message.get("tracking_number")
     print(f"Tracking shipment: {tracking_number}")
     # Your shipping logic here
-
 
 # Register handlers
 client.register_handler("orders", process_order)

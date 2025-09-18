@@ -58,6 +58,7 @@ cp .env.example .env
 ```
 
 Key configuration options:
+
 - `PUBSUB_SERVER_URL`: WebSocket server URL (default: `http://localhost:5000`)
 - `PUBSUB_CONSUMER_NAME`: Client identifier (default: `demo-client`)
 - `PUBSUB_TOPICS`: Comma-separated list of topics to subscribe

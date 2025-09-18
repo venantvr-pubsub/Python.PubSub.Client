@@ -25,6 +25,7 @@ from pubsub import PubSubClient
 
 # Try to load environment variables from .env file
 try:
+    # noinspection PyUnresolvedReferences
     from dotenv import load_dotenv
 
     # Look for .env file in project root (parent of examples/)

@@ -1,4 +1,6 @@
+# ------------------------------
 # Byte-compiled / optimized / DLL files
+# ------------------------------
 __pycache__/
 *.py[cod]
 *$py.class
@@ -6,7 +8,9 @@ __pycache__/
 # C extensions
 *.so
 
+# ------------------------------
 # Distribution / packaging
+# ------------------------------
 .Python
 build/
 develop-eggs/
@@ -26,15 +30,21 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# ------------------------------
 # PyInstaller
+# ------------------------------
 *.manifest
 *.spec
 
+# ------------------------------
 # Installer logs
+# ------------------------------
 pip-log.txt
 pip-delete-this-directory.txt
 
+# ------------------------------
 # Unit test / coverage reports
+# ------------------------------
 htmlcov/
 .tox/
 .nox/
@@ -49,37 +59,52 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# ------------------------------
 # Translations
+# ------------------------------
 *.mo
 *.pot
 
-# Django stuff:
+# ------------------------------
+# Django
+# ------------------------------
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
-# Flask stuff:
+# ------------------------------
+# Flask
+# ------------------------------
 instance/
 .webassets-cache
 
-# Scrapy stuff:
+# ------------------------------
+# Scrapy
+# ------------------------------
 .scrapy
 
-# Sphinx documentation
+# ------------------------------
+# Sphinx
+# ------------------------------
 docs/_build/
 
+# ------------------------------
 # PyBuilder
+# ------------------------------
 .pybuilder/
 target/
 
-# Jupyter Notebook
+# ------------------------------
+# Jupyter / IPython
+# ------------------------------
 .ipynb_checkpoints
-
-# IPython
 profile_default/
 ipython_config.py
 
+# ------------------------------
+# Python env managers
+# ------------------------------
 # pyenv
 .python-version
 
@@ -96,14 +121,20 @@ poetry.lock
 # PEP 582
 __pypackages__/
 
-# Celery stuff
+# ------------------------------
+# Celery
+# ------------------------------
 celerybeat-schedule
 celerybeat.pid
 
-# SageMath parsed files
+# ------------------------------
+# SageMath
+# ------------------------------
 *.sage.py
 
+# ------------------------------
 # Environments
+# ------------------------------
 .env
 .venv
 env/
@@ -112,80 +143,101 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# IDEs
+# ------------------------------
+# IDEs / Editors
+# ------------------------------
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
+.spyderproject
+.spyproject
+.ropeproject
+
+# ------------------------------
+# mkdocs
+# ------------------------------
+/site
+
+# ------------------------------
+# Type checkers
+# ------------------------------
+.pyre/
+.pytype/
+
+# ------------------------------
+# Cython
+# ------------------------------
+cython_debug/
+
+# ------------------------------
+# OS generated files
+# ------------------------------
 .DS_Store
+Thumbs.db
+ehthumbs.db
+.directory
 
+# ------------------------------
 # Project specific
+# ------------------------------
 *.pid
-*.seed
 *.pid.lock
+*.seed
 
+# ------------------------------
 # Local configuration
+# ------------------------------
 config.local.ini
 config.local.yaml
 config.local.yml
 config.local.json
 
+# ------------------------------
 # Temporary files
+# ------------------------------
 tmp/
 temp/
 *.tmp
 *.temp
+*.bak
+*.backup
+*.old
 
+# ------------------------------
 # Logs
+# ------------------------------
 logs/
 
-# OS generated files
-Thumbs.db
-.directory
-
+# ------------------------------
 # Security
+# ------------------------------
 *.key
 *.pem
 *.crt
 *.csr
 
-# Backup files
-*.bak
-*.backup
-*.old
-
-# Database
+# ------------------------------
+# Database (keep for dev, ignore in prod)
+# ------------------------------
 *.db
 *.sqlite
 *.sqlite3
 
-# Package managers
+# ------------------------------
+# Node / Frontend
+# ------------------------------
 node_modules/
 yarn.lock
 package-lock.json
+
+# ------------------------------
+# Pre-commit
+# ------------------------------
+.pre-commit-config.yaml.lock
+
+# ------------------------------
+# Claude (custom)
+# ------------------------------
 /.claude/

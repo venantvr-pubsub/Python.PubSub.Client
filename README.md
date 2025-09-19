@@ -2,8 +2,6 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![PyPI Version](https://img.shields.io/pypi/v/python-pubsub-client)](https://pypi.org/project/python-pubsub-client/)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/venantvr/Python.PubSub.Client/ci.yml?branch=master)](https://github.com/venantvr/Python.PubSub.Client/actions)
 [![Coverage Status](https://img.shields.io/codecov/c/github/venantvr/Python.PubSub.Client)](https://codecov.io/gh/venantvr/Python.PubSub.Client)
 
@@ -183,19 +181,6 @@ make test
 pytest tests/test_client.py -v
 ```
 
-### Code Quality
-
-```bash
-# Format code
-make format
-
-# Run linters
-make lint
-
-# Run all checks (linters and tests)
-make check
-```
-
 ## 📁 Project Structure
 
 ```
@@ -285,7 +270,6 @@ Contributions are welcome! Please follow these steps:
 
 Please ensure:
 
-- Code follows the project's style guidelines (Black formatting)
 - All tests pass
 - Coverage remains above 80%
 - Documentation is updated as needed

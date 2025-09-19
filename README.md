@@ -1,9 +1,7 @@
-# Python PubSub Client
+# Client Pub/Sub WebSocket en Python
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/venantvr/Python.PubSub.Client/ci.yml?branch=master)](https://github.com/venantvr/Python.PubSub.Client/actions)
-[![Coverage Status](https://img.shields.io/codecov/c/github/venantvr/Python.PubSub.Client)](https://codecov.io/gh/venantvr/Python.PubSub.Client)
 
 A simple, robust, and production-ready WebSocket Pub/Sub client for Python, built on Socket.IO.
 

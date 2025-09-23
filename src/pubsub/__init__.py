@@ -7,7 +7,7 @@ and topic-based subscription support.
 
 from .pubsub_client import PubSubClient
 from .pubsub_message import PubSubMessage
-from .managed import Events, ServiceBus, ThreadingBase
+from .managed import AllProcessingCompleted, ServiceBus, QueueWorkerThread, OrchestratorBase
 
 __version__ = "0.1.0"
-__all__ = ["PubSubClient", "PubSubMessage", "Events", "ServiceBus", "ThreadingBase"]
+__all__ = ["PubSubClient", "PubSubMessage", "AllProcessingCompleted", "ServiceBus", "QueueWorkerThread", "OrchestratorBase"]

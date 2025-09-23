@@ -4,9 +4,9 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from events import AllProcessingCompleted
+from .events import AllProcessingCompleted
 from pubsub.logger import logger
-from service_bus import ServiceBus
+from .service_bus import ServiceBus
 
 
 class QueueWorkerThread(threading.Thread, ABC):

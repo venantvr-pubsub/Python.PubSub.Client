@@ -1,4 +1,3 @@
-import logging
 import queue
 import threading
 from typing import Any, Callable, Dict, List, Optional
@@ -6,10 +5,8 @@ from typing import Any, Callable, Dict, List, Optional
 import requests
 import socketio
 
+from .logger import logger
 from .pubsub_message import PubSubMessage
-
-# Get logger for this module (don't configure it)
-logger = logging.getLogger(__name__)
 
 
 class PubSubClient:

@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, List
 
 from events import AllProcessingCompleted
-from logger import logger
+from pubsub.logger import logger
 from service_bus import ServiceBus
 
 

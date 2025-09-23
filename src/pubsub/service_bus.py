@@ -5,9 +5,9 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, get_type_hints, Optional, Dict
 
-from pubsub.logger import logger
+from .logger import logger
 # noinspection PyPackageRequirements
-from pubsub.pubsub_client import PubSubClient
+from .pubsub_client import PubSubClient
 
 
 class ServiceBus(threading.Thread):

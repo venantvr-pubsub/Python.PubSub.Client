@@ -62,7 +62,7 @@ class PubSubClient:
 
     def on_connect(self) -> None:
         """Handle connection to the server."""
-        # logger.info(f"[{self.consumer}] Connected to server {self.url}")
+        logger.info(f"[{self.consumer}] Connected to server {self.url}")
         self.sio.emit("subscribe", {"consumer": self.consumer, "topics": self.topics})
         self.running = True
 
@@ -78,7 +78,7 @@ class PubSubClient:
 
         :param data: Message data containing topic, message_id, message, and producer
         """
-        # logger.info(f"[{self.consumer}] Queuing message: {data}")
+        logger.info(f"[{self.consumer}] Queuing message: {data}")
         self.message_queue.put(data)
 
     def process_queue(self) -> None:
@@ -96,10 +96,10 @@ class PubSubClient:
                 message = data["message"]
                 producer = data.get("producer")
 
-                # logger.info(
-                #     f"[{self.consumer}] Processing message from topic [{topic}]: "
-                #     f"{message} (from {producer}, ID={message_id})"
-                # )
+                logger.info(
+                    f"[{self.consumer}] Processing message from topic [{topic}]: "
+                    f"{message} (from {producer}, ID={message_id})"
+                )
 
                 if topic in self.handlers:
                     try:
@@ -118,11 +118,9 @@ class PubSubClient:
                         )
 
                     except Exception as e:
-                        # logger.error(f"[{self.consumer}] Error in handler for topic {topic}: {e}")
-                        pass
+                        logger.error(f"[{self.consumer}] Error in handler for topic {topic}: {e}")
                 else:
-                    # logger.warning(f"[{self.consumer}] No handler for topic {topic}.")
-                    pass
+                    logger.warning(f"[{self.consumer}] No handler for topic {topic}.")
 
                 # Notify consumption
                 # self.sio.emit(
@@ -139,21 +137,19 @@ class PubSubClient:
             except queue.Empty:
                 continue
             except Exception as e:
-                # logger.error(f"[{self.consumer}] Error processing message: {e}")
-                pass
+                logger.error(f"[{self.consumer}] Error processing message: {e}")
 
     def on_disconnect(self) -> None:
         """Handle disconnection from the server."""
-        # logger.info(
-        #     f"[{self.consumer}] Disconnected from server. "
-        #     "Reconnection will be attempted automatically."
-        # )
+        logger.info(
+            f"[{self.consumer}] Disconnected from server. "
+            "Reconnection will be attempted automatically."
+        )
         self.running = False  # Pause queue processing until reconnected
 
     def on_new_message(self, data: Dict[str, Any]) -> None:
         """Handle new message events."""
-        # logger.info(f"[{self.consumer}] New message: {data}")
-        pass
+        logger.info(f"[{self.consumer}] New message: {data}")
 
     def publish(self, topic: str, message: Any, producer: str, message_id: str) -> None:
         """
@@ -166,27 +162,24 @@ class PubSubClient:
         """
         msg = PubSubMessage.new(topic, message, producer, message_id)
         url = f"{self.url}/publish"
-        # logger.info(f"[{self.consumer}] Publishing to {topic}: {msg.to_dict()}")
+        logger.info(f"[{self.consumer}] Publishing to {topic}: {msg.to_dict()}")
         try:
             resp = requests.post(url, json=msg.to_dict(), timeout=10)
             resp.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
-            # logger.info(f"[{self.consumer}] Publish response: {resp.json()}")
+            logger.info(f"[{self.consumer}] Publish response: {resp.json()}")
         except requests.exceptions.ConnectionError as e:
-            # logger.error(f"[{self.consumer}] Connection error during publish: {e}")
-            pass
+            logger.error(f"[{self.consumer}] Connection error during publish: {e}")
         except requests.exceptions.HTTPError as e:
-            # logger.error(
-            #     f"[{self.consumer}] HTTP error during publish: "
-            #     f"{e.response.status_code} - {e.response.text}"
-            # )
-            pass
+            logger.error(
+                f"[{self.consumer}] HTTP error during publish: "
+                f"{e.response.status_code} - {e.response.text}"
+            )
         except Exception as e:
-            # logger.error(f"[{self.consumer}] An unexpected error occurred during publish: {e}")
-            pass
+            logger.error(f"[{self.consumer}] An unexpected error occurred during publish: {e}")
 
     def start(self) -> None:
         """Start the client and connect to the server."""
-        # logger.info(f"Starting client {self.consumer} with topics {self.topics}")
+        logger.info(f"Starting client {self.consumer} with topics {self.topics}")
         try:
             self.sio.connect(self.url)
             self.sio.wait()
@@ -195,7 +188,7 @@ class PubSubClient:
 
     def stop(self) -> None:
         """Stop the client and clean up resources."""
-        # logger.info(f"Stopping client {self.consumer}")
+        logger.info(f"Stopping client {self.consumer}")
         self.running = False
         self._stop_event.set()
 

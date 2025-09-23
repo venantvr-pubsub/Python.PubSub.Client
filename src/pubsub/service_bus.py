@@ -7,7 +7,7 @@ from typing import Any, Callable, get_type_hints, Optional, Dict
 
 from .logger import logger
 # noinspection PyPackageRequirements
-from .pubsub_client import PubSubClient
+from .pubsub_client import HandlerInfo, PubSubClient
 
 
 class ServiceBus(threading.Thread):
@@ -18,15 +18,16 @@ class ServiceBus(threading.Thread):
         self.consumer_name = consumer_name
         self.client: Optional[PubSubClient] = None
         self._topics = set()
-        self._handlers = collections.defaultdict(list)
+        self._handlers: Dict[str, list[HandlerInfo]] = collections.defaultdict(list)
         self._event_schemas: Dict[str, type] = {}
 
         # AJOUT : Le verrou pour protéger l'accès au dictionnaire des schémas
         self._schema_lock = threading.Lock()
 
-    def subscribe(self, event_name: str, subscriber: Callable):
+    def subscribe(self, event_name: str, subscriber: Callable, metadata: str = "toto"):
         self._topics.add(event_name)
-        self._handlers[event_name].append(subscriber)
+        handler_info = HandlerInfo(handler=subscriber, metadata=metadata)
+        self._handlers[event_name].append(handler_info)
 
         # On utilise le verrou pour rendre l'opération "vérifier puis agir" atomique
         with self._schema_lock:
@@ -49,8 +50,8 @@ class ServiceBus(threading.Thread):
     def run(self):
         logger.info(f"Le thread ServiceBus démarre. Connexion et abonnement aux topics: {list(self._topics)}")
         self.client = PubSubClient(url=self.url, consumer=self.consumer_name, topics=list(self._topics))
-        for event_name, subscribers in self._handlers.items():
-            def create_master_handler(e_name, subs_list):
+        for event_name, handler_infos in self._handlers.items():
+            def create_master_handler(e_name, handlers_list):
                 def _master_handler(message: Dict[str, Any]):
                     if isinstance(message, str) and message.startswith("Subscribed to"):
                         return
@@ -71,16 +72,17 @@ class ServiceBus(threading.Thread):
                         except TypeError as e:
                             logger.error(f"Erreur validation pour '{e_name}': {e}. Message: {message}")
                             return
-                    for sub in subs_list:
+                    for handler_info in handlers_list:
                         try:
-                            sub(validated_payload)
+                            handler_info.handler(validated_payload)
                         except Exception as e:
-                            logger.error(f"Erreur dans l'abonné '{sub.__name__}' pour '{e_name}': {e}", exc_info=True)
+                            logger.error(f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{e_name}': {e}", exc_info=True)
 
                 return _master_handler
 
-            master_handler = create_master_handler(event_name, subscribers)
-            self.client.register_handler(event_name, master_handler)
+            master_handler = create_master_handler(event_name, handler_infos)
+            # On peut passer une metadata personnalisée pour le master handler
+            self.client.register_handler(event_name, master_handler, metadata=f"master_handler_{event_name}")
         logger.info("Tous les handlers sont enregistrés. Démarrage de l'écoute...")
         try:
             self.client.start()
@@ -88,7 +90,7 @@ class ServiceBus(threading.Thread):
             logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
         logger.info("ServiceBus arrêté.")
 
-    def publish(self, event_name: str, payload: Any):
+    def publish(self, event_name: str, payload: Any, metadata="toto"):
         if self.client is None:
             logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
             return
@@ -106,7 +108,8 @@ class ServiceBus(threading.Thread):
             return
 
         self.client.publish(
-            topic=event_name, message=message, producer=self.client.consumer, message_id=str(uuid.uuid4())
+            # topic=event_name, message=message, producer=self.client.consumer, message_id=str(uuid.uuid4())
+            topic = event_name, message = message, producer = metadata, message_id = str(uuid.uuid4())
         )
 
     @staticmethod

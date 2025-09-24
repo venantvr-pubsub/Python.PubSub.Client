@@ -24,7 +24,7 @@ class ServiceBus(threading.Thread):
         # AJOUT : Le verrou pour protéger l'accès au dictionnaire des schémas
         self._schema_lock = threading.Lock()
 
-    def subscribe(self, event_name: str, subscriber: Callable, metadata: str = "toto"):
+    def subscribe(self, event_name: str, subscriber: Callable, metadata: str):
         self._topics.add(event_name)
         handler_info = HandlerInfo(handler=subscriber, metadata=metadata)
         self._handlers[event_name].append(handler_info)
@@ -62,6 +62,7 @@ class ServiceBus(threading.Thread):
                     validated_payload = message
 
                     if event_class:
+                        # noinspection PyShadowingNames
                         try:
                             if not isinstance(message, dict):
                                 logger.warning(
@@ -73,6 +74,7 @@ class ServiceBus(threading.Thread):
                             logger.error(f"Erreur validation pour '{e_name}': {e}. Message: {message}")
                             return
                     for handler_info in handlers_list:
+                        # noinspection PyShadowingNames
                         try:
                             handler_info.handler(validated_payload)
                         except Exception as e:
@@ -90,7 +92,7 @@ class ServiceBus(threading.Thread):
             logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
         logger.info("ServiceBus arrêté.")
 
-    def publish(self, event_name: str, payload: Any, metadata="toto"):
+    def publish(self, event_name: str, payload: Any, metadata: str):
         if self.client is None:
             logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
             return

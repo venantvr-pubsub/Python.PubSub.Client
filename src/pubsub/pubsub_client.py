@@ -1,4 +1,5 @@
 import queue
+import secrets
 import threading
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
@@ -13,7 +14,7 @@ from .pubsub_message import PubSubMessage
 @dataclass
 class HandlerInfo:
     handler: Callable[[Any], None]
-    metadata: str = "toto"
+    metadata: str = secrets.token_hex(4)
 
 
 class PubSubClient:
@@ -50,7 +51,7 @@ class PubSubClient:
         self.sio.on("disconnect", self.on_disconnect)
         self.sio.on("new_message", self.on_new_message)
 
-    def register_handler(self, topic: str, handler_func: Callable[[Any], None], metadata="toto") -> None:
+    def register_handler(self, topic: str, handler_func: Callable[[Any], None], metadata: str) -> None:
         """
         Register a custom handler for a given topic.
 

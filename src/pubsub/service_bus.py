@@ -77,6 +77,9 @@ class ServiceBus(threading.Thread):
                         # noinspection PyShadowingNames
                         try:
                             handler_info.handler(validated_payload)
+
+                            self.client.notify_consumption(validated_payload, str(uuid.uuid4()), handler_info.metadata, e_name)
+
                         except Exception as e:
                             logger.error(f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{e_name}': {e}", exc_info=True)
 

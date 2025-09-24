@@ -86,7 +86,7 @@ class ServiceBus(threading.Thread):
             # On peut passer une metadata personnalisée pour le master handler
             # self.client.register_handler(event_name, master_handler, metadata=f"master_handler_{event_name}")
             # self.client.register_handler(event_name, master_handler, metadata=self.get_handler_class_name(master_handler))
-            self.client.register_handler(event_name, master_handler, metadata=self.consumer_name)
+            self.client.register_handler(event_name, master_handler)
             # TODO : pour metadata il faudrait self.consumer...
         logger.info("Tous les handlers sont enregistrés. Démarrage de l'écoute...")
         try:

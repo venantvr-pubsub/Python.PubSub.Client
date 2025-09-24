@@ -125,16 +125,7 @@ class PubSubClient:
                         handler_info = self.handlers[topic]
                         handler_info.handler(message)
 
-                        # Notify consumption
-                        self.sio.emit(
-                            "consumed",
-                            {
-                                "consumer": handler_info.metadata,
-                                "topic": topic,
-                                "message_id": message_id,
-                                "message": message,
-                            },
-                        )
+                        self.notify_consumption(message, message_id, handler_info.metadata, topic)
 
                     except Exception as e:
                         logger.error(f"[{self.consumer}] Error in handler for topic {topic}: {e}")
@@ -157,6 +148,18 @@ class PubSubClient:
                 continue
             except Exception as e:
                 logger.error(f"[{self.consumer}] Error processing message: {e}")
+
+    def notify_consumption(self, message, message_id, metadata: str, topic):
+        # Notify consumption
+        self.sio.emit(
+            "consumed",
+            {
+                "consumer": metadata,
+                "topic": topic,
+                "message_id": message_id,
+                "message": message,
+            },
+        )
 
     def on_disconnect(self) -> None:
         """Handle disconnection from the server."""

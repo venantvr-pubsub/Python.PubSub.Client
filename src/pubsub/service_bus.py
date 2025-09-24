@@ -98,17 +98,17 @@ class ServiceBus(threading.Thread):
             logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
         logger.info("ServiceBus arrêté.")
 
-    @staticmethod
-    def get_handler_class_name(handler_func):
-        if hasattr(handler_func, '__self__'):
-            # C'est une méthode d'instance
-            return handler_func.__self__.__class__.__name__
-        elif hasattr(handler_func, '__qualname__'):
-            # Extraire le nom de classe du qualname
-            parts = handler_func.__qualname__.split('.')
-            if len(parts) > 1:
-                return parts[0]
-        return handler_func.__name__  # Fonction simple
+    # @staticmethod
+    # def get_handler_class_name(handler_func):
+    #     if hasattr(handler_func, '__self__'):
+    #         # C'est une méthode d'instance
+    #         return handler_func.__self__.__class__.__name__
+    #     elif hasattr(handler_func, '__qualname__'):
+    #         # Extraire le nom de classe du qualname
+    #         parts = handler_func.__qualname__.split('.')
+    #         if len(parts) > 1:
+    #             return parts[0]
+    #     return handler_func.__name__  # Fonction simple
 
     def publish(self, event_name: str, payload: Any, metadata: str):
         if self.client is None:

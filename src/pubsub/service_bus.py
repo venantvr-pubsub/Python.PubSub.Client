@@ -24,9 +24,9 @@ class ServiceBus(threading.Thread):
         # AJOUT : Le verrou pour protéger l'accès au dictionnaire des schémas
         self._schema_lock = threading.Lock()
 
-    def subscribe(self, event_name: str, subscriber: Callable, metadata: str):
+    def subscribe(self, event_name: str, subscriber: Callable):
         self._topics.add(event_name)
-        handler_info = HandlerInfo(handler=subscriber, metadata=metadata)
+        handler_info = HandlerInfo(handler=subscriber)
         self._handlers[event_name].append(handler_info)
 
         # On utilise le verrou pour rendre l'opération "vérifier puis agir" atomique
@@ -84,13 +84,28 @@ class ServiceBus(threading.Thread):
 
             master_handler = create_master_handler(event_name, handler_infos)
             # On peut passer une metadata personnalisée pour le master handler
-            self.client.register_handler(event_name, master_handler, metadata=f"master_handler_{event_name}")
+            # self.client.register_handler(event_name, master_handler, metadata=f"master_handler_{event_name}")
+            # self.client.register_handler(event_name, master_handler, metadata=self.get_handler_class_name(master_handler))
+            self.client.register_handler(event_name, master_handler, metadata=self.consumer_name)
+            # TODO : pour metadata il faudrait self.consumer...
         logger.info("Tous les handlers sont enregistrés. Démarrage de l'écoute...")
         try:
             self.client.start()
         except Exception as e:
             logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
         logger.info("ServiceBus arrêté.")
+
+    @staticmethod
+    def get_handler_class_name(handler_func):
+        if hasattr(handler_func, '__self__'):
+            # C'est une méthode d'instance
+            return handler_func.__self__.__class__.__name__
+        elif hasattr(handler_func, '__qualname__'):
+            # Extraire le nom de classe du qualname
+            parts = handler_func.__qualname__.split('.')
+            if len(parts) > 1:
+                return parts[0]
+        return handler_func.__name__  # Fonction simple
 
     def publish(self, event_name: str, payload: Any, metadata: str):
         if self.client is None:

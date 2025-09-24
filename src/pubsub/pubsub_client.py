@@ -1,7 +1,6 @@
 import queue
-import secrets
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
@@ -14,7 +13,27 @@ from .pubsub_message import PubSubMessage
 @dataclass
 class HandlerInfo:
     handler: Callable[[Any], None]
-    metadata: str = secrets.token_hex(4)
+    metadata: str = field(init=False)
+
+    def __post_init__(self):
+        self.metadata = self._get_handler_class_name()
+
+    def _get_handler_class_name(self) -> str:
+        """
+        Méthode d'instance privée qui analyse self.handler.
+        """
+        # Note: on utilise self.handler directement ici
+        handler_func = self.handler
+
+        if hasattr(handler_func, '__self__'):
+            return handler_func.__self__.__class__.__name__
+
+        if hasattr(handler_func, '__qualname__'):
+            parts = handler_func.__qualname__.split('.')
+            if len(parts) > 1:
+                return parts[-2]
+
+        return handler_func.__name__
 
 
 class PubSubClient:
@@ -51,15 +70,14 @@ class PubSubClient:
         self.sio.on("disconnect", self.on_disconnect)
         self.sio.on("new_message", self.on_new_message)
 
-    def register_handler(self, topic: str, handler_func: Callable[[Any], None], metadata: str) -> None:
+    def register_handler(self, topic: str, handler_func: Callable[[Any], None]) -> None:
         """
         Register a custom handler for a given topic.
 
-        :param metadata:
         :param topic: Topic to handle
         :param handler_func: Function to call when a message is received
         """
-        self.handlers[topic] = HandlerInfo(handler=handler_func, metadata=metadata)
+        self.handlers[topic] = HandlerInfo(handler=handler_func)
 
     def on_connect(self) -> None:
         """Handle connection to the server."""

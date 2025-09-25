@@ -1,10 +1,10 @@
 """
 Exemple montrant les diff\u00e9rences entre ServiceBusBase et EnhancedServiceBus.
 """
+import os
+import sys
 from dataclasses import dataclass
 
-import sys
-import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
 from pubsub.service_bus import ServiceBusBase, EnhancedServiceBus

@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from typing import List
 
 from src.pubsub.logger import logger
-from src.pubsub.service_bus import ServiceBus
 from src.pubsub.pubsub_message import PubSubMessage
+from src.pubsub.service_bus import ServiceBus
 
 
 @dataclass

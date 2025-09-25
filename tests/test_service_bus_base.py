@@ -2,17 +2,15 @@
 Tests unitaires pour ServiceBusBase.
 Tests des fonctionnalités de base : pub/sub, validation schémas, PubSubMessage.
 """
-import unittest
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass
-from typing import Any
-
-import sys
 import os
+import sys
+import unittest
+from dataclasses import dataclass
+from unittest.mock import Mock, patch
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
 from pubsub.service_bus_base import ServiceBusBase
-from pubsub.pubsub_message import PubSubMessage
 
 
 @dataclass

@@ -3,8 +3,8 @@ ServiceBus amélioré avec fonctionnalités avancées.
 Hérite de ServiceBusBase et ajoute la gestion d'état, les statistiques,
 la synchronisation d'événements et le retry policy.
 """
-import time
 import threading
+import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 from dataclasses import asdict, field, dataclass, is_dataclass
@@ -299,7 +299,6 @@ class EnhancedServiceBus(ServiceBusBase):
         """Enregistre les handlers avec gestion des stats et événements."""
         import uuid
         from typing import Dict, Any
-        from .pubsub_client import PubSubClient
 
         for event_name, handler_infos in self._handlers.items():
             def create_master_handler(evt_name, handlers_list):

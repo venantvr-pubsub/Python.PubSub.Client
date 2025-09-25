@@ -5,9 +5,9 @@ Pub/Sub servers, with automatic reconnection, message queuing,
 and topic-based subscription support.
 """
 
+from .events import AllProcessingCompleted
 from .pubsub_client import PubSubClient
 from .pubsub_message import PubSubMessage
-from .events import AllProcessingCompleted
 from .service_bus import ServiceBus
 from .threading_base import QueueWorkerThread, OrchestratorBase
 

@@ -2,14 +2,14 @@
 Tests unitaires pour EnhancedServiceBus.
 Tests des fonctionnalités avancées : état, stats, publish_and_wait, retry policy.
 """
-import unittest
-from unittest.mock import Mock, MagicMock, patch
-from dataclasses import dataclass
-from concurrent.futures import TimeoutError
-import time
-
-import sys
 import os
+import sys
+import time
+import unittest
+from concurrent.futures import TimeoutError
+from dataclasses import dataclass
+from unittest.mock import Mock, patch
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
 from pubsub.enhanced_service_bus import (

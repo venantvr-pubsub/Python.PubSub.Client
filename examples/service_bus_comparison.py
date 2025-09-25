@@ -1,15 +1,30 @@
-"""
-Exemple montrant les diff\u00e9rences entre ServiceBusBase et EnhancedServiceBus.
-"""
-import os
-import sys
+# -*- coding: utf-8 -*-
 from dataclasses import dataclass
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
-from pubsub.service_bus import ServiceBusBase, EnhancedServiceBus
-from pubsub.logger import logger
+# Assurez-vous que le chemin vers votre module pubsub est correct
+# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
+# Mocks pour permettre l'exécution du script sans les vraies classes
+class ServiceBusBase:
+    def __init__(self, url, consumer_id): pass
+
+    def subscribe(self, event_name, handler): pass
+
+    def publish(self, event_name, payload, source): pass
+
+
+class EnhancedServiceBus(ServiceBusBase):
+    def __init__(self, url, consumer_id, max_workers=None, retry_policy=None):
+        super().__init__(url, consumer_id)
+
+
+class logger:
+    @staticmethod
+    def info(msg): print(f"INFO: {msg}")
+
+    @staticmethod
+    def error(msg): print(f"ERROR: {msg}")
 
 @dataclass
 class SimpleEvent:
@@ -18,13 +33,13 @@ class SimpleEvent:
 
 
 def demo_base_service_bus():
-    """D\u00e9mo du ServiceBusBase - l\u00e9ger et simple."""
+    """Démo du ServiceBusBase - léger et simple."""
     logger.info("=== ServiceBusBase Demo ===")
 
     bus = ServiceBusBase("http://localhost:3000", "simple-consumer")
 
     def handle_event(event: SimpleEvent):
-        logger.info(f"[BASE] Re\u00e7u: {event.message}")
+        logger.info(f"[BASE] Reçu: {event.message}")
 
     # Souscription simple
     bus.subscribe("simple.event", handle_event)
@@ -32,11 +47,11 @@ def demo_base_service_bus():
     # Publication simple (fire and forget)
     bus.publish("simple.event", {"message": "Hello", "timestamp": 123.45}, "demo")
 
-    logger.info("ServiceBusBase: L\u00e9ger, simple, efficace pour les cas basiques")
+    logger.info("ServiceBusBase: Léger, simple, efficace pour les cas basiques")
 
 
 def demo_enhanced_service_bus():
-    """D\u00e9mo d'EnhancedServiceBus - complet avec sync et stats."""
+    """Démo d'EnhancedServiceBus - complet avec sync et stats."""
     logger.info("\n=== EnhancedServiceBus Demo ===")
 
     bus = EnhancedServiceBus(
@@ -50,17 +65,17 @@ def demo_enhanced_service_bus():
     )
 
     def handle_event(event: SimpleEvent):
-        logger.info(f"[ENHANCED] Re\u00e7u: {event.message}")
+        logger.info(f"[ENHANCED] Reçu: {event.message}")
         return {"status": "processed"}
 
     bus.subscribe("advanced.event", handle_event)
 
-    # D\u00e9marrer le bus (dans un vrai cas, ce serait dans un thread)
+    # Démarrer le bus (dans un vrai cas, ce serait dans un thread)
     # bus.start()
 
-    # Attendre que le service soit pr\u00eat
+    # Attendre que le service soit prêt
     # if bus.wait_for_start(timeout=10):
-    #     logger.info(f"\u00c9tat actuel: {bus.state.value}")
+    #     logger.info(f"État actuel: {bus.state.value}")
 
     # Publication avec attente de confirmation
     # future = bus.publish_and_wait(
@@ -71,7 +86,7 @@ def demo_enhanced_service_bus():
 
     # try:
     #     result = future.wait()
-    #     logger.info(f"Confirmation re\u00e7ue: {result}")
+    #     logger.info(f"Confirmation reçue: {result}")
     # except TimeoutError:
     #     logger.error("Timeout en attente de confirmation")
 
@@ -79,37 +94,37 @@ def demo_enhanced_service_bus():
     # stats = bus.get_stats()
     # logger.info(f"Statistiques: {stats}")
 
-    logger.info("EnhancedServiceBus: Id\u00e9al pour trading, avec sync et monitoring")
+    logger.info("EnhancedServiceBus: Idéal pour trading, avec sync et monitoring")
 
 
 def show_comparison():
     """Affiche une comparaison des deux versions."""
     print("\n📊 COMPARAISON DES DEUX VERSIONS\n")
     print("┌─────────────────────────┬──────────────────────┬──────────────────────┐")
-    print("│ Fonctionnalit\u00e9          │ ServiceBusBase       │ EnhancedServiceBus   │")
+    print("│ Fonctionnalité          │ ServiceBusBase       │ EnhancedServiceBus   │")
     print("├─────────────────────────┼──────────────────────┼──────────────────────┤")
     print("│ Pub/Sub basique         │ ✅                   │ ✅                   │")
-    print("│ Validation sch\u00e9mas      │ ✅                   │ ✅                   │")
+    print("│ Validation schémas      │ ✅                   │ ✅                   │")
     print("│ PubSubMessage           │ ✅                   │ ✅                   │")
     print("│ Thread-safe             │ ✅                   │ ✅                   │")
     print("├─────────────────────────┼──────────────────────┼──────────────────────┤")
-    print("│ Gestion d'\u00e9tat          │ ❌                   │ ✅                   │")
+    print("│ Gestion d'état          │ ❌                   │ ✅                   │")
     print("│ Publish & Wait          │ ❌                   │ ✅                   │")
-    print("│ Sync multi-\u00e9v\u00e9nements  │ ❌                   │ ✅                   │")
+    print("│ Sync multi-événements   │ ❌                   │ ✅                   │")
     print("│ Statistiques            │ ❌                   │ ✅                   │")
     print("│ Retry policy            │ ❌                   │ ✅                   │")
     print("│ ThreadPool              │ ❌                   │ ✅                   │")
     print("│ Cleanup automatique     │ ❌                   │ ✅                   │")
     print("├─────────────────────────┼──────────────────────┼──────────────────────┤")
-    print("│ Empreinte m\u00e9moire      │ L\u00e9g\u00e8re              │ Moyenne              │")
-    print("│ Complexit\u00e9             │ Simple               │ Avanc\u00e9e             │")
-    print("│ Cas d'usage            │ Applications simples │ Trading, critique    │")
+    print("│ Empreinte mémoire       │ Légère               │ Moyenne              │")
+    print("│ Complexité              │ Simple               │ Avancée              │")
+    print("│ Cas d'usage             │ Applications simples │ Trading, critique    │")
     print("└─────────────────────────┴──────────────────────┴──────────────────────┘")
 
     print("\n💡 RECOMMANDATIONS:")
-    print("• ServiceBusBase: Parfait pour les applications simples avec pub/sub basique")
-    print("• EnhancedServiceBus: Id\u00e9al pour le trading et les syst\u00e8mes critiques")
-    print("• Migration facile: EnhancedServiceBus h\u00e9rite de ServiceBusBase")
+    print("• ServiceBusBase: Parfait pour les applications simples avec pub/sub basique.")
+    print("• EnhancedServiceBus: Idéal pour le trading et les systèmes critiques.")
+    print("• Migration facile: EnhancedServiceBus hérite de ServiceBusBase.")
 
 
 if __name__ == "__main__":

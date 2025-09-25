@@ -13,10 +13,10 @@ from .pubsub_message import PubSubMessage
 @dataclass
 class HandlerInfo:
     handler: Callable[[Any], None]
-    metadata: str = field(init=False)
+    handler_name: str = field(init=False)
 
     def __post_init__(self):
-        self.metadata = self._get_handler_class_name()
+        self.handler_name = self._get_handler_class_name()
 
     def _get_handler_class_name(self) -> str:
         """
@@ -57,7 +57,7 @@ class PubSubClient:
         self._worker_thread: Optional[threading.Thread] = None
 
         # Create Socket.IO client with explicit reconnection settings
-        self.sio = socketio.Client(
+        self.socket_client = socketio.Client(
             reconnection=True,
             reconnection_attempts=0,  # Infinite reconnection attempts
             reconnection_delay=2000,  # Delay between reconnection attempts (ms)
@@ -65,10 +65,10 @@ class PubSubClient:
         )
 
         # Register generic events
-        self.sio.on("connect", self.on_connect)
-        self.sio.on("message", self.on_message)
-        self.sio.on("disconnect", self.on_disconnect)
-        self.sio.on("new_message", self.on_new_message)
+        self.socket_client.on("connect", self.on_connect)
+        self.socket_client.on("message", self.on_message)
+        self.socket_client.on("disconnect", self.on_disconnect)
+        self.socket_client.on("new_message", self.on_new_message)
 
     def register_handler(self, topic: str, handler_func: Callable[[Any], None]) -> None:
         """
@@ -82,7 +82,7 @@ class PubSubClient:
     def on_connect(self) -> None:
         """Handle connection to the server."""
         logger.info(f"[{self.consumer}] Connected to server {self.url}")
-        self.sio.emit("subscribe", {"consumer": self.consumer, "topics": self.topics})
+        self.socket_client.emit("subscribe", {"consumer": self.consumer, "topics": self.topics})
         self.running = True
 
         # Start worker thread only if it's not already running
@@ -115,6 +115,14 @@ class PubSubClient:
                 message = data["message"]
                 producer = data.get("producer")
 
+                # Créer un objet PubSubMessage
+                pubsub_message = PubSubMessage(
+                    topic=topic,
+                    message_id=message_id,
+                    message=message,
+                    producer=producer
+                )
+
                 logger.info(
                     f"[{self.consumer}] Processing message from topic [{topic}]: "
                     f"{message} (from {producer}, ID={message_id})"
@@ -125,7 +133,7 @@ class PubSubClient:
                         handler_info = self.handlers[topic]
                         handler_info.handler(message)
 
-                        self.notify_consumption(message, message_id, handler_info.metadata, topic)
+                        self.notify_consumption(pubsub_message, handler_info.handler_name)
 
                     except Exception as e:
                         logger.error(f"[{self.consumer}] Error in handler for topic {topic}: {e}")
@@ -149,15 +157,15 @@ class PubSubClient:
             except Exception as e:
                 logger.error(f"[{self.consumer}] Error processing message: {e}")
 
-    def notify_consumption(self, message, message_id, metadata: str, topic):
+    def notify_consumption(self, pubsub_message: PubSubMessage, handler_name: str):
         # Notify consumption
-        self.sio.emit(
+        self.socket_client.emit(
             "consumed",
             {
-                "consumer": metadata,
-                "topic": topic,
-                "message_id": message_id,
-                "message": message,
+                "consumer": handler_name,
+                "topic": pubsub_message.topic,
+                "message_id": pubsub_message.message_id,
+                "message": pubsub_message.message,
             },
         )
 
@@ -203,8 +211,8 @@ class PubSubClient:
         """Start the client and connect to the server."""
         logger.info(f"Starting client {self.consumer} with topics {self.topics}")
         try:
-            self.sio.connect(self.url)
-            self.sio.wait()
+            self.socket_client.connect(self.url)
+            self.socket_client.wait()
         finally:
             self.stop()
 
@@ -215,8 +223,8 @@ class PubSubClient:
         self._stop_event.set()
 
         # Disconnect from server
-        if self.sio.connected:
-            self.sio.disconnect()
+        if self.socket_client.connected:
+            self.socket_client.disconnect()
 
         # Wait for worker thread to finish
         if self._worker_thread and self._worker_thread.is_alive():

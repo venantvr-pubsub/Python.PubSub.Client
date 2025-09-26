@@ -197,7 +197,7 @@ def main():
     # Charger la configuration depuis l'environnement
     server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
     consumer_name = os.getenv("PUBSUB_CONSUMER_NAME", "trading-bot")
-    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", 10))
+    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", "10"))
 
     # Créer le ServiceBus
     service_bus = ServiceBus(

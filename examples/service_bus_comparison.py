@@ -52,7 +52,7 @@ def demo_enhanced_service_bus():
     """Démo d'EnhancedServiceBus - complet avec sync et stats."""
     logger.info("\n=== EnhancedServiceBus Demo ===")
     server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
-    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", 10))
+    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", "10"))
 
     bus = EnhancedServiceBus(
         server_url,

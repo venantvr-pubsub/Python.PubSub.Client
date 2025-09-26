@@ -58,7 +58,9 @@ class BusinessLogger:
     def _create_table(self):
         """Crée la table de la base de données si elle n'existe pas."""
         try:
-            os.makedirs(os.path.dirname(self.db_file), exist_ok=True)
+            path_dirname = os.path.dirname(self.db_file)
+            if len(path_dirname) > 0:
+                os.makedirs(path_dirname, exist_ok=True)
             with sqlite3.connect(self.db_file) as conn:
                 cursor = conn.cursor()
                 cursor.execute(f"""

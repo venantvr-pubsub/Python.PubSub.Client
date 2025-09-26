@@ -45,6 +45,11 @@ class PubSubClient:
         :param consumer: Consumer name (e.g., 'alice')
         :param topics: List of topics to subscribe to
         """
+        reconnection = True
+        reconnection_attempts = 0
+        reconnection_delay = 2000
+        reconnection_delay_max = 10000
+
         self.url = url.rstrip("/")
         self.consumer = consumer
         self.topics = topics
@@ -58,10 +63,10 @@ class PubSubClient:
 
         # Create Socket.IO client with explicit reconnection settings
         self.socket_client = socketio.Client(
-            reconnection=True,
-            reconnection_attempts=0,  # Infinite reconnection attempts
-            reconnection_delay=2000,  # Delay between reconnection attempts (ms)
-            reconnection_delay_max=10000,  # Max delay for reconnection
+            reconnection=reconnection,
+            reconnection_attempts=reconnection_attempts,  # Infinite reconnection attempts
+            reconnection_delay=reconnection_delay,  # Delay between reconnection attempts (ms)
+            reconnection_delay_max=reconnection_delay_max,  # Max delay for reconnection
         )
 
         # Register generic events

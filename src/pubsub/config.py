@@ -3,6 +3,7 @@
 import logging
 import os
 from typing import Optional
+
 from dotenv import load_dotenv
 
 # Essayer de charger les variables d'environnement depuis un fichier .env
@@ -64,4 +65,3 @@ def setup_logging() -> None:
             logging.error(f"Could not configure file logging to {log_file}: {e}")
 
     logging.info(f"Logging configured to level {log_level}")
-

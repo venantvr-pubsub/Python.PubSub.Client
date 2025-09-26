@@ -12,7 +12,9 @@ from rich.text import Text
 class ServiceBusBase:
     # noinspection PyUnusedLocal
     def __init__(self, url, consumer_id): pass
+
     def subscribe(self, event_name, handler): pass
+
     def publish(self, event_name, payload, source): pass
 
 
@@ -26,6 +28,7 @@ class EnhancedServiceBus(ServiceBusBase):
 class logger:
     @staticmethod
     def info(msg): print(f"INFO: {msg}")
+
     @staticmethod
     def error(msg): print(f"ERROR: {msg}")
 
@@ -41,8 +44,10 @@ def demo_base_service_bus():
     logger.info("=== ServiceBusBase Demo ===")
     server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
     bus = ServiceBusBase(server_url, "simple-consumer")
+
     def handle_event(event: SimpleEvent):
         logger.info(f"[BASE] Reçu: {event.message}")
+
     bus.subscribe("simple.event", handle_event)
     bus.publish("simple.event", {"message": "Hello", "timestamp": 123.45}, "demo")
     logger.info("ServiceBusBase: Léger, simple, efficace pour les cas basiques")
@@ -60,9 +65,11 @@ def demo_enhanced_service_bus():
         max_workers=max_workers,
         retry_policy={"max_attempts": 3, "initial_delay": 0.5}
     )
+
     def handle_event(event: SimpleEvent):
         logger.info(f"[ENHANCED] Reçu: {event.message}")
         return {"status": "processed"}
+
     bus.subscribe("advanced.event", handle_event)
     logger.info("EnhancedServiceBus: Idéal pour trading, avec sync et monitoring")
 

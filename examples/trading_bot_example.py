@@ -2,13 +2,15 @@
 Exemple d'utilisation du ServiceBus amélioré pour un bot de trading.
 Utilise PubSubMessage comme conteneur d'événements avec synchronisation.
 """
+import os
 import time
 from dataclasses import dataclass
 from typing import List
 
 from src.pubsub.logger import logger
 from src.pubsub.pubsub_message import PubSubMessage
-from src.pubsub.service_bus import ServiceBus
+# Note: Using EnhancedServiceBus for advanced features like publish_and_wait
+from src.pubsub.service_bus import EnhancedServiceBus as ServiceBus
 
 
 @dataclass
@@ -192,11 +194,16 @@ def order_handler(order: OrderRequest):
 def main():
     """Démonstration du bot de trading."""
 
+    # Charger la configuration depuis l'environnement
+    server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
+    consumer_name = os.getenv("PUBSUB_CONSUMER_NAME", "trading-bot")
+    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", 10))
+
     # Créer le ServiceBus
     service_bus = ServiceBus(
-        url="http://localhost:3000",
-        consumer_name="trading-bot",
-        max_workers=10
+        url=server_url,
+        consumer_name=consumer_name,
+        max_workers=max_workers
     )
 
     # Enregistrer des handlers simulés

@@ -117,6 +117,7 @@ class ServiceBusBase(threading.Thread):
                     validated_payload = message
 
                     if event_class:
+                        # noinspection PyShadowingNames
                         try:
                             if not isinstance(message, dict):
                                 logger.warning(
@@ -130,6 +131,7 @@ class ServiceBusBase(threading.Thread):
 
                     # Exécuter les handlers
                     for handler_info in handlers_list:
+                        # noinspection PyShadowingNames
                         try:
                             handler_info.handler(validated_payload)
                             self.client.notify_consumption(pubsub_msg, handler_info.handler_name)

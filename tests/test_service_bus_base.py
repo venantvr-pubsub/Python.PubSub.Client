@@ -25,7 +25,7 @@ class TestServiceBusBase(unittest.TestCase):
 
     def setUp(self):
         """Configuration avant chaque test."""
-        self.url = "http://localhost:3000"
+        self.url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
         self.consumer_name = "test-consumer"
         self.service_bus = ServiceBusBase(self.url, self.consumer_name)
 
@@ -57,6 +57,7 @@ class TestServiceBusBase(unittest.TestCase):
         """Test de la souscription avec détection de schéma."""
         event_name = "test.typed.event"
 
+        # noinspection PyUnusedLocal
         def typed_handler(event: TestEvent):
             pass
 

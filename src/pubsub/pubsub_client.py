@@ -1,3 +1,4 @@
+import os
 import queue
 import threading
 from dataclasses import dataclass, field
@@ -45,10 +46,11 @@ class PubSubClient:
         :param consumer: Consumer name (e.g., 'alice')
         :param topics: List of topics to subscribe to
         """
-        reconnection = True
-        reconnection_attempts = 0
-        reconnection_delay = 2000
-        reconnection_delay_max = 10000
+        reconnection_str = os.getenv("PUBSUB_RECONNECTION_ENABLED", "true").lower()
+        reconnection = reconnection_str in ("true", "1", "yes", "on")
+        reconnection_attempts = int(os.getenv("PUBSUB_RECONNECTION_ATTEMPTS", "0"))
+        reconnection_delay = int(os.getenv("PUBSUB_RECONNECTION_DELAY_MS", "2000"))
+        reconnection_delay_max = int(os.getenv("PUBSUB_RECONNECTION_DELAY_MAX_MS", "10000"))
 
         self.url = url.rstrip("/")
         self.consumer = consumer

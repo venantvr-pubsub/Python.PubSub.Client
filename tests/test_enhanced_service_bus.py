@@ -33,7 +33,7 @@ class TestEnhancedServiceBus(unittest.TestCase):
 
     def setUp(self):
         """Configuration avant chaque test."""
-        self.url = "http://localhost:3000"
+        self.url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
         self.consumer_name = "test-enhanced"
         self.service_bus = EnhancedServiceBus(
             self.url,
@@ -159,6 +159,7 @@ class TestEnhancedServiceBus(unittest.TestCase):
         self.service_bus.client = mock_client
 
         # Le thread n'est pas vraiment démarré, donc join retournera rapidement
+        # noinspection PyUnusedLocal
         result = self.service_bus.stop(timeout=0.1)
 
         mock_client.stop.assert_called_once()

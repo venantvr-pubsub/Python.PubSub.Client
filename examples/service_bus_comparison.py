@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 from dataclasses import dataclass
 
 from rich.console import Console
@@ -9,19 +10,25 @@ from rich.text import Text
 
 # Mocks pour permettre l'exécution du script sans les vraies classes
 class ServiceBusBase:
+    # noinspection PyUnusedLocal
     def __init__(self, url, consumer_id): pass
     def subscribe(self, event_name, handler): pass
     def publish(self, event_name, payload, source): pass
 
+
 class EnhancedServiceBus(ServiceBusBase):
+    # noinspection PyUnusedLocal
     def __init__(self, url, consumer_id, max_workers=None, retry_policy=None):
         super().__init__(url, consumer_id)
 
+
+# noinspection PyPep8Naming
 class logger:
     @staticmethod
     def info(msg): print(f"INFO: {msg}")
     @staticmethod
     def error(msg): print(f"ERROR: {msg}")
+
 
 @dataclass
 class SimpleEvent:
@@ -32,7 +39,8 @@ class SimpleEvent:
 def demo_base_service_bus():
     """Démo du ServiceBusBase - léger et simple."""
     logger.info("=== ServiceBusBase Demo ===")
-    bus = ServiceBusBase("http://localhost:3000", "simple-consumer")
+    server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
+    bus = ServiceBusBase(server_url, "simple-consumer")
     def handle_event(event: SimpleEvent):
         logger.info(f"[BASE] Reçu: {event.message}")
     bus.subscribe("simple.event", handle_event)
@@ -43,10 +51,13 @@ def demo_base_service_bus():
 def demo_enhanced_service_bus():
     """Démo d'EnhancedServiceBus - complet avec sync et stats."""
     logger.info("\n=== EnhancedServiceBus Demo ===")
+    server_url = os.getenv("PUBSUB_SERVER_URL", "http://localhost:3000")
+    max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", 10))
+
     bus = EnhancedServiceBus(
-        "http://localhost:3000",
+        server_url,
         "advanced-consumer",
-        max_workers=10,
+        max_workers=max_workers,
         retry_policy={"max_attempts": 3, "initial_delay": 0.5}
     )
     def handle_event(event: SimpleEvent):

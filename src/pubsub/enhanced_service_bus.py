@@ -3,6 +3,7 @@ ServiceBus amélioré avec fonctionnalités avancées.
 Hérite de ServiceBusBase et ajoute la gestion d'état, les statistiques,
 la synchronisation d'événements et le retry policy.
 """
+import os
 import threading
 import time
 import uuid
@@ -115,7 +116,7 @@ class EnhancedServiceBus(ServiceBusBase):
     Conçu pour les applications critiques nécessitant une fiabilité accrue.
     """
 
-    def __init__(self, url: str, consumer_name: str, max_workers: int = 10, retry_policy: Optional[Dict] = None):
+    def __init__(self, url: str, consumer_name: str, max_workers: Optional[int] = None, retry_policy: Optional[Dict] = None):
         super().__init__(url, consumer_name)
         self.daemon = False  # Ne pas être daemon pour garantir un arrêt propre
 
@@ -130,6 +131,10 @@ class EnhancedServiceBus(ServiceBusBase):
         self._event_manager = EventWaitManager()
         self._pending_events: Dict[str, EventFuture] = {}
         self._pending_lock = threading.RLock()
+
+        if max_workers is None:
+            max_workers = int(os.getenv("PUBSUB_THREAD_POOL_SIZE", "10"))
+
         self._executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="ServiceBus-Worker")
 
         # Politique de retry
@@ -222,6 +227,7 @@ class EnhancedServiceBus(ServiceBusBase):
 
         return event_future
 
+    # noinspection PyMethodMayBeStatic
     def wait_for_events(self, event_futures: List[EventFuture], timeout: Optional[float] = None) -> Dict[str, PubSubMessage]:
         """
         Attend que plusieurs événements soient traités.
@@ -240,7 +246,7 @@ class EnhancedServiceBus(ServiceBusBase):
         for event_future in event_futures:
             if timeout is not None:
                 elapsed = (datetime.now() - start_time).total_seconds()
-                remaining_timeout = max(0, timeout - elapsed)
+                remaining_timeout = int(max(0.0, timeout - elapsed))
                 if remaining_timeout == 0:
                     raise TimeoutError(f"Timeout waiting for event {event_future.event_name}")
 
@@ -273,7 +279,7 @@ class EnhancedServiceBus(ServiceBusBase):
             self.client = PubSubClient(url=self.url, consumer=self.consumer_name, topics=list(self._topics))
 
             with self._stats_lock:
-                self._stats["start_time"] = time.time()
+                self._stats["start_time"] = int(time.time())
 
             # Enregistrer les handlers avec gestion avancée
             self._register_enhanced_handlers()
@@ -289,6 +295,7 @@ class EnhancedServiceBus(ServiceBusBase):
                 self._set_state(ServiceBusState.ERROR)
                 self._error_event.set()
                 with self._stats_lock:
+                    # noinspection PyTypeChecker
                     self._stats["last_error"] = str(e)
                 raise
         finally:
@@ -439,5 +446,5 @@ class EnhancedServiceBus(ServiceBusBase):
         with self._stats_lock:
             stats = self._stats.copy()
             if stats["start_time"]:
-                stats["uptime"] = time.time() - stats["start_time"]
+                stats["uptime"] = int(time.time() - stats["start_time"])
             return stats

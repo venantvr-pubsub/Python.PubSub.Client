@@ -4,7 +4,7 @@ from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Optional
 
-from events import WorkerFailed
+from .events import WorkerFailed
 # noinspection PyPackageRequirements
 from pubsub import QueueWorkerThread, ServiceBus
 # noinspection PyPackageRequirements

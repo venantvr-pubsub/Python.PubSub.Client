@@ -10,7 +10,8 @@ import socketio
 from .logger import logger
 from .pubsub_message import PubSubMessage
 
-RED = "\033[38;5;52m"
+RED_ON_YELLOW = "\033[31;43m"
+RED = "\033[31m"
 RESET = "\033[0m"
 
 
@@ -134,7 +135,7 @@ class PubSubClient:
                 )
 
                 logger.info(
-                    f"[{self.consumer}] Processing message from topic [{RED}{topic}{RESET}]: "
+                    f"[{self.consumer}] Processing message from topic [{RED_ON_YELLOW}{topic}{RESET}]: "
                     f"{message} (from {producer}, ID={message_id})"
                 )
 
@@ -146,9 +147,9 @@ class PubSubClient:
                         self.notify_consumption(pubsub_message, handler_info.handler_name)
 
                     except Exception as e:
-                        logger.error(f"[{self.consumer}] Error in handler for topic {RED}{topic}{RESET}: {e}")
+                        logger.error(f"[{self.consumer}] Error in handler for topic {RED_ON_YELLOW}{topic}{RESET}: {e}")
                 else:
-                    logger.warning(f"[{self.consumer}] No handler for topic {RED}{topic}{RESET}.")
+                    logger.warning(f"[{self.consumer}] No handler for topic {RED_ON_YELLOW}{topic}{RESET}.")
 
                 # Notify consumption
                 # self.sio.emit(
@@ -202,7 +203,7 @@ class PubSubClient:
         """
         msg = PubSubMessage.new(topic, message, producer, message_id)
         url = f"{self.url}/publish"
-        logger.info(f"[{self.consumer}] Publishing to {RED}{topic}{RESET}: {msg.to_dict()}")
+        logger.info(f"[{self.consumer}] Publishing to {RED_ON_YELLOW}{topic}{RESET}: {msg.to_dict()}")
         try:
             resp = requests.post(url, json=msg.to_dict(), timeout=10)
             resp.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)

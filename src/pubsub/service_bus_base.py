@@ -9,6 +9,11 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, Optional, get_type_hints
 
+try:
+    from pydantic import BaseModel
+except ImportError:
+    BaseModel = None
+
 from .logger import logger
 from .pubsub_client import HandlerInfo, PubSubClient
 from .pubsub_message import PubSubMessage
@@ -73,11 +78,27 @@ class ServiceBusBase(threading.Thread):
             logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
             return
 
+        # if is_dataclass(payload):
+        #     with self._schema_lock:
+        #         if event_name not in self._event_schemas:
+        #             self._event_schemas[event_name] = type(payload)
+        #     message = asdict(payload)
+        # elif isinstance(payload, dict):
+        #     message = payload
+        # else:
+        #     logger.error(f"Type de payload non supporté : {type(payload)}")
+        #     return
+
         if is_dataclass(payload):
             with self._schema_lock:
                 if event_name not in self._event_schemas:
                     self._event_schemas[event_name] = type(payload)
             message = asdict(payload)
+        elif BaseModel and isinstance(payload, BaseModel):  # Gérer Pydantic
+            with self._schema_lock:
+                if event_name not in self._event_schemas:
+                    self._event_schemas[event_name] = type(payload)
+            message = payload.model_dump()  # Utiliser la méthode Pydantic
         elif isinstance(payload, dict):
             message = payload
         else:

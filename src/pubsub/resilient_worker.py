@@ -5,10 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Optional
 
 from .events import WorkerFailed
-# noinspection PyPackageRequirements
-from pubsub import QueueWorkerThread, ServiceBus
-# noinspection PyPackageRequirements
-from pubsub.logger import logger
+from .logger import logger
+from .service_bus import ServiceBus
+from .threading_base import QueueWorkerThread
 
 
 class ResilientWorkerThread(QueueWorkerThread, ABC):

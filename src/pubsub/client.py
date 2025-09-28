@@ -1,6 +1,7 @@
 import os
 import queue
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -48,7 +49,7 @@ class PubSubClient:
         Initialize the PubSub client.
 
         :param url: URL of the Socket.IO server, e.g., http://localhost:5000
-        :param consumer: Consumer name (e.g., 'alice')
+        :param consumer: Consumer name (e.g., 'DataFetcher')
         :param topics: List of topics to subscribe to
         """
         reconnection_str = os.getenv("PUBSUB_RECONNECTION_ENABLED", "true").lower()
@@ -60,23 +61,22 @@ class PubSubClient:
         self.url = url.rstrip("/")
         self.consumer = consumer
         self.topics = topics
-        self.handlers: Dict[str, HandlerInfo] = {}  # topic → HandlerInfo
-        self.message_queue: queue.Queue[Any] = (
-            queue.Queue()
-        )  # Queue for processing messages sequentially
+        self.handlers: Dict[str, HandlerInfo] = {}
+        self.message_queue: queue.Queue[Any] = queue.Queue()
         self.running = False
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
 
-        # Create Socket.IO client with explicit reconnection settings
+        # Utiliser un ThreadPoolExecutor pour exécuter les handlers de manière non-bloquante
+        self._handler_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix=f"{consumer}-handler")
+
         self.socket_client = socketio.Client(
             reconnection=reconnection,
-            reconnection_attempts=reconnection_attempts,  # Infinite reconnection attempts
-            reconnection_delay=reconnection_delay,  # Delay between reconnection attempts (ms)
-            reconnection_delay_max=reconnection_delay_max,  # Max delay for reconnection
+            reconnection_attempts=reconnection_attempts,
+            reconnection_delay=reconnection_delay,
+            reconnection_delay_max=reconnection_delay_max,
         )
 
-        # Register generic events
         self.socket_client.on("connect", self.on_connect)
         self.socket_client.on("message", self.on_message)
         self.socket_client.on("disconnect", self.on_disconnect)
@@ -109,68 +109,52 @@ class PubSubClient:
 
         :param data: Message data containing topic, message_id, message, and producer
         """
-        logger.info(f"[{self.consumer}] Queuing message: {data}")
+        logger.debug(f"[{self.consumer}] Queuing message: {data}")
         self.message_queue.put(data)
 
     def process_queue(self) -> None:
-        """Process messages from the queue one by one."""
+        """Process messages from the queue by submitting them to a thread pool."""
         while not self._stop_event.is_set():
             try:
-                # Check if we should stop even if queue is not empty
-                if not self.running and self.message_queue.empty():
-                    break
-
                 data = self.message_queue.get(timeout=1.0)
-                # Ici on a le message sous forme de dictionnary...
-                topic = data["topic"]
-                message_id = data.get("message_id")
-                message = data["message"]
-                producer = data.get("producer")
-
-                # Créer un objet PubSubMessage
-                pubsub_message = PubSubMessage(
-                    topic=topic,
-                    message_id=message_id,
-                    message=message,
-                    producer=producer
-                )
-
-                logger.info(
-                    f"[{self.consumer}] Processing message from topic [{BLACK_ON_YELLOW}{topic}{RESET}]: "
-                    f"{message} (from {producer}, ID={message_id})"
-                )
+                topic = data.get("topic")
 
                 if topic in self.handlers:
-                    try:
-                        handler_info = self.handlers[topic]
-                        handler_info.handler(message)
-
-                        self.notify_consumption(pubsub_message, handler_info.handler_name)
-
-                    except Exception as e:
-                        logger.error(f"[{self.consumer}] Error in handler for topic {BLACK_ON_YELLOW}{topic}{RESET}: {e}")
+                    handler_info = self.handlers[topic]
+                    # Soumettre l'exécution du handler au pool pour ne pas bloquer cette boucle
+                    self._handler_executor.submit(self._execute_handler, handler_info, data)
                 else:
-                    logger.warning(f"[{self.consumer}] No handler for topic {BLACK_ON_YELLOW}{topic}{RESET}.")
-
-                # Notify consumption
-                # self.sio.emit(
-                #     "consumed",
-                #     {
-                #         "consumer": self.consumer,
-                #         "topic": topic,
-                #         "message_id": message_id,
-                #         "message": message,
-                #     },
-                # )
+                    logger.warning(f"[{self.consumer}] No handler for topic {topic}.")
 
                 self.message_queue.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"[{self.consumer}] Error processing message: {e}")
+                logger.error(f"[{self.consumer}] Critical error in queue processing loop: {e}", exc_info=True)
+
+    def _execute_handler(self, handler_info: HandlerInfo, data: Dict[str, Any]):
+        """Executes the handler in a dedicated thread and handles logging and consumption notification."""
+        topic = data.get("topic")
+        message = data.get("message")
+        try:
+            logger.info(
+                f"[{self.consumer}] Processing message from topic [{BLACK_ON_YELLOW}{topic}{RESET}]: "
+                f" (from {data.get('producer')}, ID={data.get('message_id')})"
+            )
+            handler_info.handler(message)
+
+            pubsub_message = PubSubMessage(
+                topic=topic,
+                message_id=data.get("message_id"),
+                message=message,
+                producer=data.get("producer")
+            )
+            self.notify_consumption(pubsub_message, handler_info.handler_name)
+        except Exception as e:
+            logger.error(f"[{self.consumer}] Error in handler '{handler_info.handler_name}' for topic {topic}: {e}", exc_info=True)
 
     def notify_consumption(self, pubsub_message: PubSubMessage, handler_name: str):
-        # Notify consumption
+        """Notify the server that a message has been consumed."""
         self.socket_client.emit(
             "consumed",
             {
@@ -183,15 +167,15 @@ class PubSubClient:
 
     def on_disconnect(self) -> None:
         """Handle disconnection from the server."""
-        logger.info(
+        logger.warning(
             f"[{self.consumer}] Disconnected from server. "
             "Reconnection will be attempted automatically."
         )
-        self.running = False  # Pause queue processing until reconnected
+        self.running = False
 
     def on_new_message(self, data: Dict[str, Any]) -> None:
         """Handle new message events."""
-        logger.info(f"[{self.consumer}] New message: {data}")
+        logger.debug(f"[{self.consumer}] Server event: {data}")
 
     def publish(self, topic: str, message: Any, producer: str, message_id: str) -> None:
         """
@@ -204,18 +188,13 @@ class PubSubClient:
         """
         msg = PubSubMessage.new(topic, message, producer, message_id)
         url = f"{self.url}/publish"
-        logger.info(f"[{self.consumer}] Publishing to {BLACK_ON_YELLOW}{topic}{RESET}: {msg.to_dict()}")
+        logger.info(f"[{self.consumer}] Publishing to {BLACK_ON_YELLOW}{topic}{RESET}")
         try:
             resp = requests.post(url, json=msg.to_dict(), timeout=10)
-            resp.raise_for_status()  # Raises HTTPError for bad responses (4xx or 5xx)
+            resp.raise_for_status()
             logger.info(f"[{self.consumer}] Publish response: {resp.json()}")
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"[{self.consumer}] Connection error during publish: {e}")
-        except requests.exceptions.HTTPError as e:
-            logger.error(
-                f"[{self.consumer}] HTTP error during publish: "
-                f"{e.response.status_code} - {e.response.text}"
-            )
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[{self.consumer}] Error during publish to {topic}: {e}")
         except Exception as e:
             logger.error(f"[{self.consumer}] An unexpected error occurred during publish: {e}")
 
@@ -234,7 +213,9 @@ class PubSubClient:
         self.running = False
         self._stop_event.set()
 
-        # Disconnect from server
+        # Shutdown the handler executor
+        self._handler_executor.shutdown(wait=True, cancel_futures=False)
+
         if self.socket_client.connected:
             self.socket_client.disconnect()
 

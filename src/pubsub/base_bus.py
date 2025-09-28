@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from .client import HandlerInfo, PubSubClient
 from .logger import logger
+from .pubsub_message import PubSubMessage
 
 
 class ServiceBusBase(threading.Thread):
@@ -74,10 +75,8 @@ class ServiceBusBase(threading.Thread):
             logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
             return
 
-        # On délègue la préparation et la validation à la nouvelle méthode
         message = self._prepare_payload(payload, event_name)
 
-        # Si le payload est invalide, on arrête ici (l'erreur est déjà loguée)
         if message is None:
             return
 
@@ -91,9 +90,6 @@ class ServiceBusBase(threading.Thread):
     def _prepare_payload(self, payload: Any, event_name: str) -> Optional[Dict[str, Any]]:
         """
         Prépare et sérialise le payload en dictionnaire.
-
-        Enregistre le schéma de l'événement si c'est la première fois qu'il est vu.
-        Retourne un dictionnaire sérialisé ou None si le type de payload n'est pas supporté.
         """
         message: Optional[Dict[str, Any]] = None
         schema_to_register = None
@@ -101,7 +97,7 @@ class ServiceBusBase(threading.Thread):
         if is_dataclass(payload):
             schema_to_register = type(payload)
             message = asdict(payload)
-        elif isinstance(payload, BaseModel):  # Gère Pydantic
+        elif isinstance(payload, BaseModel):
             schema_to_register = type(payload)
             message = payload.model_dump()
         elif isinstance(payload, dict):
@@ -110,7 +106,6 @@ class ServiceBusBase(threading.Thread):
             logger.error(f"Type de payload non supporté : {type(payload)}")
             return None
 
-        # Gère l'enregistrement du schéma de manière centralisée
         if schema_to_register:
             with self._schema_lock:
                 if event_name not in self._event_schemas:
@@ -129,7 +124,6 @@ class ServiceBusBase(threading.Thread):
                     if isinstance(message, str) and message.startswith("Subscribed to"):
                         return
 
-                    # Valider le payload
                     event_class = self._event_schemas.get(evt_name)
                     validated_payload = message
 
@@ -145,10 +139,22 @@ class ServiceBusBase(threading.Thread):
                             logger.error(f"Erreur validation pour '{evt_name}': {e}. Message: {message}")
                             return
 
-                    # Exécuter les handlers
                     for handler_info in handlers_list:
                         try:
+                            message_id = message.get("message_id", str(uuid.uuid4()))
+                            producer = message.get("producer", "unknown")
+                            pubsub_msg = PubSubMessage(
+                                topic=evt_name,
+                                message_id=message_id,
+                                message=message,
+                                producer=producer
+                            )
+
                             handler_info.handler(validated_payload)
+
+                            if self.client:
+                                self.client.notify_consumption(pubsub_msg, handler_info.handler_name)
+
                         except Exception as e:
                             logger.error(f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{evt_name}': {e}", exc_info=True)
 

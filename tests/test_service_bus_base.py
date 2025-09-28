@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
-from pubsub.service_bus_base import ServiceBusBase
+from pubsub.base_bus import ServiceBusBase
 
 
 @dataclass
@@ -69,7 +69,7 @@ class TestServiceBusBase(unittest.TestCase):
 
     def test_publish_without_client(self):
         """Test de publication sans client démarré."""
-        with patch('pubsub.service_bus_base.logger') as mock_logger:
+        with patch('pubsub.base_bus.logger') as mock_logger:
             self.service_bus.publish("test.event", {"data": "test"}, "producer")
             mock_logger.error.assert_called_once()
 
@@ -108,7 +108,7 @@ class TestServiceBusBase(unittest.TestCase):
         """Test de publication avec un type invalide."""
         self.service_bus.client = Mock()
 
-        with patch('pubsub.service_bus_base.logger') as mock_logger:
+        with patch('pubsub.base_bus.logger') as mock_logger:
             self.service_bus.publish("test.event", "invalid_type", "producer")
             mock_logger.error.assert_called_once()
 

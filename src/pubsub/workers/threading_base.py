@@ -172,6 +172,7 @@ class OrchestratorBase(ABC):
         self._processing_completed = threading.Event()
 
         self._status_server: Optional[_StatusServer] = None
+
         if enable_status_page:
             self.register_services()  # On doit enregistrer les services d'abord
             self._status_server = _StatusServer(self.services)

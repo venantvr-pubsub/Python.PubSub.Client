@@ -29,6 +29,14 @@ class QueueWorkerThread(threading.Thread, ABC):
         if self.service_bus:
             self.setup_event_subscriptions()
 
+    def get_status(self) -> dict:
+        """Retourne l'état de base du worker."""
+        return {
+            "name": self.name,
+            "is_alive": self.is_alive(),
+            "tasks_in_queue": self.work_queue.qsize(),
+        }
+
     @abstractmethod
     def setup_event_subscriptions(self) -> None:
         """

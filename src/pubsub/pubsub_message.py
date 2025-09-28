@@ -2,6 +2,7 @@ from dataclasses import asdict, dataclass
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
+
 @dataclass
 class PubSubMessage:
     topic: str

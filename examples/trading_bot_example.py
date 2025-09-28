@@ -203,5 +203,6 @@ def main():
         stats = service_bus.get_stats()
         logger.info(f"Statistiques finales: {stats}")
 
+
 if __name__ == "__main__":
     main()

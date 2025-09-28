@@ -161,6 +161,7 @@ class TestEnhancedServiceBus(unittest.TestCase):
 
 class TestEventWaitManager(unittest.TestCase):
     """Tests pour EventWaitManager."""
+
     def setUp(self):
         self.manager = EventWaitManager()
 
@@ -181,6 +182,7 @@ class TestEventWaitManager(unittest.TestCase):
 
 class TestEventFuture(unittest.TestCase):
     """Tests pour EventFuture."""
+
     def setUp(self):
         self.future = EventFuture(event_name="test.event", timeout=5.0)
 

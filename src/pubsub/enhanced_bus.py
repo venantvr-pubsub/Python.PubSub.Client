@@ -61,6 +61,7 @@ class EventWaitManager:
     """
     Gestionnaire pour synchroniser l'attente d'événements multiples.
     """
+
     def __init__(self):
         self._events: Dict[str, EventFuture] = {}
         self._lock = threading.RLock()
@@ -110,6 +111,7 @@ class EnhancedServiceBus(ServiceBusBase):
     """
     ServiceBus amélioré avec gestion d'état, statistiques et synchronisation d'événements.
     """
+
     def __init__(self, url: str, consumer_name: str, max_workers: Optional[int] = None, retry_policy: Optional[Dict] = None):
         super().__init__(url, consumer_name)
         self.daemon = False
@@ -238,6 +240,7 @@ class EnhancedServiceBus(ServiceBusBase):
             else:
                 for handler_info in handlers_list:
                     self._executor.submit(self._execute_handler_with_retry, handler_info, validated_payload)
+
         return _master_handler
 
     def _handle_rpc_call(self, future: EventFuture, payload: Any, handlers: list):

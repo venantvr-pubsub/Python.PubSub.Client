@@ -125,29 +125,27 @@ class ServiceBusBase(threading.Thread):
                         return
 
                     event_class = self._event_schemas.get(evt_name)
-                    validated_payload = message
+                    validated_payload = message.get("message", message)
 
                     if event_class:
                         try:
-                            if not isinstance(message, dict):
+                            if not isinstance(validated_payload, dict):
                                 logger.warning(
-                                    f"Message inattendu pour {evt_name}, attendu dict, reçu {type(message)}"
+                                    f"Message inattendu pour {evt_name}, attendu dict, reçu {type(validated_payload)}"
                                 )
                                 return
-                            validated_payload = event_class(**message)
+                            validated_payload = event_class(**validated_payload)
                         except TypeError as e:
                             logger.error(f"Erreur validation pour '{evt_name}': {e}. Message: {message}")
                             return
 
                     for handler_info in handlers_list:
                         try:
-                            message_id = message.get("message_id", str(uuid.uuid4()))
-                            producer = message.get("producer", "unknown")
                             pubsub_msg = PubSubMessage(
                                 topic=evt_name,
-                                message_id=message_id,
-                                message=message,
-                                producer=producer
+                                message_id=message.get("message_id", str(uuid.uuid4())),
+                                message=message.get("message"),
+                                producer=message.get("producer", "unknown")
                             )
 
                             handler_info.handler(validated_payload)

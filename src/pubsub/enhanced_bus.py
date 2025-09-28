@@ -238,7 +238,6 @@ class EnhancedServiceBus(ServiceBusBase):
             else:
                 for handler_info in handlers_list:
                     self._executor.submit(self._execute_handler_with_retry, handler_info, validated_payload)
-
         return _master_handler
 
     def _handle_rpc_call(self, future: EventFuture, payload: Any, handlers: list):
@@ -259,10 +258,18 @@ class EnhancedServiceBus(ServiceBusBase):
                 self._pending_events.pop(future.event_id, None)
 
     def _validate_payload(self, event_name: str, message: Dict[str, Any]) -> Optional[Any]:
+        """Valide et déserialise le payload, retourne l'objet ou le contenu du message."""
         event_class = self._event_schemas.get(event_name)
-        if not event_class: return message
+
+        payload = message.get("message", message)
+
+        if not event_class:
+            return payload
+
         try:
-            return event_class(**message)
+            if not isinstance(payload, dict):
+                raise TypeError(f"Payload for schema validation must be a dict, got {type(payload)}")
+            return event_class(**payload)
         except Exception as e:
             logger.error(f"Validation error for '{event_name}': {e}. Message: {message}", exc_info=True)
             with self._stats_lock:

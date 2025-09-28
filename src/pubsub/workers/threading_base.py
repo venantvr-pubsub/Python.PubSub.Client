@@ -116,6 +116,7 @@ class _StatusServer(threading.Thread):
         statuses = [service.get_status() for service in self.services_to_monitor]
         html = """
         <html><head><title>Statut des Services</title><meta http-equiv="refresh" content="5">
+        <meta charset="UTF-8">
         <style>body{font-family:Arial,sans-serif;margin:2em;background-color:#f4f4f9;color:#333}h1{color:#333}table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}th,td{border:1px solid #ddd;padding:12px;text-align:left}th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#f2f2f2}.status-alive{color:#28a745;font-weight:700}.status-dead{color:#dc3545;font-weight:700}</style>
         </head><body><h1>Statut des Threads</h1><p>Dernière mise à jour: """ + time.strftime("%Y-%m-%d %H:%M:%S") + """</p>
         <table><tr><th>Service (Thread)</th><th>État</th><th>Tâches en attente</th></tr>"""
@@ -134,7 +135,7 @@ class _StatusServer(threading.Thread):
             def do_GET(self):
                 if self.path == '/':
                     self.send_response(200)
-                    self.send_header("Content-type", "text/html")
+                    self.send_header("Content-type", "text/html; charset=utf-8")
                     self.end_headers()
                     with parent.html_lock:
                         self.wfile.write(bytes(parent.html_content, "utf8"))

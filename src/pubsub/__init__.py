@@ -8,7 +8,6 @@ and topic-based subscription support.
 from .base_bus import ServiceBusBase
 # Core components
 from .client import PubSubClient
-from .enhanced_bus import EnhancedServiceBus, ServiceBusState, EventFuture
 # Event models
 from .events import AllProcessingCompleted, WorkerFailed
 from .pubsub_message import PubSubMessage
@@ -16,7 +15,6 @@ from .pubsub_message import PubSubMessage
 from .workers import (
     OrchestratorBase,
     QueueWorkerThread,
-    ResilientWorkerThread,
 )
 
 # Alias for backward compatibility and simple use cases
@@ -27,16 +25,12 @@ __all__ = [
     # Core
     "ServiceBus",
     "ServiceBusBase",
-    "EnhancedServiceBus",
     "PubSubClient",
     "PubSubMessage",
-    "ServiceBusState",
-    "EventFuture",
     # Events
     "AllProcessingCompleted",
     "WorkerFailed",
     # Workers
     "OrchestratorBase",
     "QueueWorkerThread",
-    "ResilientWorkerThread",
 ]

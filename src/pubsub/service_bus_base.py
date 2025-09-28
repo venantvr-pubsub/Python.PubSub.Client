@@ -78,31 +78,11 @@ class ServiceBusBase(threading.Thread):
             logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
             return
 
-        # if is_dataclass(payload):
-        #     with self._schema_lock:
-        #         if event_name not in self._event_schemas:
-        #             self._event_schemas[event_name] = type(payload)
-        #     message = asdict(payload)
-        # elif isinstance(payload, dict):
-        #     message = payload
-        # else:
-        #     logger.error(f"Type de payload non supporté : {type(payload)}")
-        #     return
+        # On délègue la préparation et la validation à la nouvelle méthode
+        message = self._prepare_payload(payload, event_name)
 
-        if is_dataclass(payload):
-            with self._schema_lock:
-                if event_name not in self._event_schemas:
-                    self._event_schemas[event_name] = type(payload)
-            message = asdict(payload)
-        elif BaseModel and isinstance(payload, BaseModel):  # Gérer Pydantic
-            with self._schema_lock:
-                if event_name not in self._event_schemas:
-                    self._event_schemas[event_name] = type(payload)
-            message = payload.model_dump()  # Utiliser la méthode Pydantic
-        elif isinstance(payload, dict):
-            message = payload
-        else:
-            logger.error(f"Type de payload non supporté : {type(payload)}")
+        # Si le payload est invalide, on arrête ici (l'erreur est déjà loguée)
+        if message is None:
             return
 
         self.client.publish(
@@ -111,6 +91,36 @@ class ServiceBusBase(threading.Thread):
             producer=producer_name,
             message_id=str(uuid.uuid4())
         )
+
+    def _prepare_payload(self, payload: Any, event_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Prépare et sérialise le payload en dictionnaire.
+
+        Enregistre le schéma de l'événement si c'est la première fois qu'il est vu.
+        Retourne un dictionnaire sérialisé ou None si le type de payload n'est pas supporté.
+        """
+        message: Optional[Dict[str, Any]] = None
+        schema_to_register = None
+
+        if is_dataclass(payload):
+            schema_to_register = type(payload)
+            message = asdict(payload)
+        elif isinstance(payload, BaseModel):  # Gère Pydantic
+            schema_to_register = type(payload)
+            message = payload.model_dump()
+        elif isinstance(payload, dict):
+            message = payload
+        else:
+            logger.error(f"Type de payload non supporté : {type(payload)}")
+            return None
+
+        # Gère l'enregistrement du schéma de manière centralisée
+        if schema_to_register:
+            with self._schema_lock:
+                if event_name not in self._event_schemas:
+                    self._event_schemas[event_name] = schema_to_register
+
+        return message
 
     def run(self):
         """Thread principal du ServiceBus."""

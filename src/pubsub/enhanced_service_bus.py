@@ -13,6 +13,8 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel
+
 from . import PubSubClient
 from .logger import logger
 from .pubsub_message import PubSubMessage
@@ -188,16 +190,14 @@ class EnhancedServiceBus(ServiceBusBase):
         # Créer un future pour cet événement
         event_future = self._event_manager.create_event_future(event_name, timeout)
 
-        # Préparer le message
-        if is_dataclass(payload):
-            with self._schema_lock:
-                if event_name not in self._event_schemas:
-                    self._event_schemas[event_name] = type(payload)
-            message = asdict(payload)
-        elif isinstance(payload, dict):
-            message = payload
-        else:
-            event_future.set_exception(TypeError(f"Unsupported payload type: {type(payload)}"))
+        # Déléguer la préparation du payload à la méthode centralisée
+        message = self._prepare_payload(payload, event_name)
+
+        # Gérer l'échec de la préparation
+        if message is None:
+            exc = TypeError(f"Unsupported payload type: {type(payload)}")
+            logger.error(exc)  # On logue l'erreur ici
+            event_future.set_exception(exc)
             return event_future
 
         # Créer un PubSubMessage
@@ -226,6 +226,34 @@ class EnhancedServiceBus(ServiceBusBase):
             event_future.set_exception(e)
 
         return event_future
+
+    def _prepare_payload(self, payload: Any, event_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Prépare et sérialise le payload en dictionnaire.
+        Enregistre le schéma de l'événement et gère les dataclasses, Pydantic et dictionnaires.
+        Retourne un dictionnaire sérialisé ou None si le type de payload n'est pas supporté.
+        """
+        message: Optional[Dict[str, Any]] = None
+        schema_to_register = None
+
+        if is_dataclass(payload):
+            schema_to_register = type(payload)
+            message = asdict(payload)
+        elif isinstance(payload, BaseModel):  # Gère Pydantic
+            schema_to_register = type(payload)
+            message = payload.model_dump()
+        elif isinstance(payload, dict):
+            message = payload
+        else:
+            # L'erreur sera loguée par la méthode appelante si nécessaire
+            return None
+
+        if schema_to_register:
+            with self._schema_lock:
+                if event_name not in self._event_schemas:
+                    self._event_schemas[event_name] = schema_to_register
+
+        return message
 
     # noinspection PyMethodMayBeStatic
     def wait_for_events(self, event_futures: List[EventFuture], timeout: Optional[float] = None) -> Dict[str, PubSubMessage]:

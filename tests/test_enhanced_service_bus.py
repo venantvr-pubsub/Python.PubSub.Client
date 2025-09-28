@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
 
-from pubsub.enhanced_service_bus import (
+from pubsub.enhanced_bus import (
     EnhancedServiceBus,
     ServiceBusState,
     EventFuture,

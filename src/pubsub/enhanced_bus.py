@@ -8,17 +8,15 @@ import threading
 import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
-from dataclasses import asdict, field, dataclass, is_dataclass
+from dataclasses import field, dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel
-
-from . import PubSubClient
+from .base_bus import ServiceBusBase
+from .client import PubSubClient
 from .logger import logger
 from .pubsub_message import PubSubMessage
-from .service_bus_base import ServiceBusBase
 
 
 class ServiceBusState(Enum):
@@ -73,7 +71,6 @@ class EventWaitManager:
 
     def create_event_future(self, event_name: str, timeout: Optional[float] = None) -> EventFuture:
         """Crée un future pour attendre un événement."""
-        import uuid
         with self._lock:
             event_future = EventFuture(
                 event_id=str(uuid.uuid4()),
@@ -167,6 +164,8 @@ class EnhancedServiceBus(ServiceBusBase):
         """Change l'état du ServiceBus de manière thread-safe."""
         with self._state_lock:
             old_state = self._state
+            if old_state == new_state:
+                return
             self._state = new_state
             logger.info(f"ServiceBus state changed: {old_state.value} -> {new_state.value}")
 
@@ -174,33 +173,18 @@ class EnhancedServiceBus(ServiceBusBase):
                          timeout: float = 30.0) -> EventFuture:
         """
         Publie un événement et retourne un Future pour attendre sa confirmation.
-
-        Args:
-            event_name: Nom de l'événement
-            payload: Charge utile de l'événement
-            producer_name: Nom du producteur (optionnel)
-            timeout: Timeout en secondes
-
-        Returns:
-            EventFuture permettant d'attendre la confirmation
         """
         if self.state != ServiceBusState.RUNNING:
             raise RuntimeError(f"Cannot publish in state {self.state.value}")
 
-        # Créer un future pour cet événement
         event_future = self._event_manager.create_event_future(event_name, timeout)
-
-        # Déléguer la préparation du payload à la méthode centralisée
         message = self._prepare_payload(payload, event_name)
 
-        # Gérer l'échec de la préparation
         if message is None:
             exc = TypeError(f"Unsupported payload type: {type(payload)}")
-            logger.error(exc)  # On logue l'erreur ici
             event_future.set_exception(exc)
             return event_future
 
-        # Créer un PubSubMessage
         pubsub_msg = PubSubMessage.new(
             topic=event_name,
             message=message,
@@ -208,11 +192,9 @@ class EnhancedServiceBus(ServiceBusBase):
             message_id=event_future.event_id
         )
 
-        # Stocker le future en attente
         with self._pending_lock:
             self._pending_events[event_future.event_id] = event_future
 
-        # Publier le message
         try:
             self.client.publish(
                 topic=pubsub_msg.topic,
@@ -227,56 +209,22 @@ class EnhancedServiceBus(ServiceBusBase):
 
         return event_future
 
-    def _prepare_payload(self, payload: Any, event_name: str) -> Optional[Dict[str, Any]]:
-        """
-        Prépare et sérialise le payload en dictionnaire.
-        Enregistre le schéma de l'événement et gère les dataclasses, Pydantic et dictionnaires.
-        Retourne un dictionnaire sérialisé ou None si le type de payload n'est pas supporté.
-        """
-        message: Optional[Dict[str, Any]] = None
-        schema_to_register = None
-
-        if is_dataclass(payload):
-            schema_to_register = type(payload)
-            message = asdict(payload)
-        elif isinstance(payload, BaseModel):  # Gère Pydantic
-            schema_to_register = type(payload)
-            message = payload.model_dump()
-        elif isinstance(payload, dict):
-            message = payload
-        else:
-            # L'erreur sera loguée par la méthode appelante si nécessaire
-            return None
-
-        if schema_to_register:
-            with self._schema_lock:
-                if event_name not in self._event_schemas:
-                    self._event_schemas[event_name] = schema_to_register
-
-        return message
-
     # noinspection PyMethodMayBeStatic
-    def wait_for_events(self, event_futures: List[EventFuture], timeout: Optional[float] = None) -> Dict[str, PubSubMessage]:
+    def wait_for_events(self, event_futures: List[EventFuture], timeout: Optional[float] = None) -> Dict[str, Any]:
         """
         Attend que plusieurs événements soient traités.
-
-        Args:
-            event_futures: Liste des futures à attendre
-            timeout: Timeout global en secondes
-
-        Returns:
-            Dictionnaire des résultats {event_id: PubSubMessage}
         """
         results = {}
-        remaining_timeout = timeout
-        start_time = datetime.now()
+        start_time = time.monotonic()
 
         for event_future in event_futures:
+            remaining_timeout = timeout
             if timeout is not None:
-                elapsed = (datetime.now() - start_time).total_seconds()
-                remaining_timeout = int(max(0.0, timeout - elapsed))
+                elapsed = time.monotonic() - start_time
+                remaining_timeout = max(0.0, timeout - elapsed)
                 if remaining_timeout == 0:
-                    raise TimeoutError(f"Timeout waiting for event {event_future.event_name}")
+                    results[event_future.event_id] = TimeoutError(f"Global timeout waiting for event {event_future.event_id}")
+                    continue
 
             try:
                 results[event_future.event_id] = event_future.wait(timeout=remaining_timeout)
@@ -288,165 +236,131 @@ class EnhancedServiceBus(ServiceBusBase):
     def wait_for_start(self, timeout: float = 10.0) -> bool:
         """
         Attend que le ServiceBus soit complètement démarré.
-
-        Args:
-            timeout: Temps maximum d'attente en secondes
-
-        Returns:
-            True si démarré, False si timeout
         """
         return self._start_event.wait(timeout)
 
     def run(self):
         """Thread principal du ServiceBus avec gestion améliorée."""
         self._set_state(ServiceBusState.STARTING)
-
         try:
-            # Appeler la méthode run du parent pour l'initialisation de base
-            logger.info(f"Le thread ServiceBus démarre. Connexion et abonnement aux topics: {list(self._topics)}")
+            logger.info(f"ServiceBus thread starting. Subscribing to topics: {list(self._topics)}")
             self.client = PubSubClient(url=self.url, consumer=self.consumer_name, topics=list(self._topics))
 
             with self._stats_lock:
-                self._stats["start_time"] = int(time.time())
+                self._stats["start_time"] = time.time()
 
-            # Enregistrer les handlers avec gestion avancée
             self._register_enhanced_handlers()
 
-            logger.info("Tous les handlers sont enregistrés. Démarrage de l'écoute...")
+            logger.info("All handlers registered. Starting to listen...")
             self._set_state(ServiceBusState.RUNNING)
             self._start_event.set()
 
-            try:
-                self.client.start()
-            except Exception as e:
-                logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
-                self._set_state(ServiceBusState.ERROR)
-                self._error_event.set()
-                with self._stats_lock:
-                    # noinspection PyTypeChecker
-                    self._stats["last_error"] = str(e)
-                raise
+            self.client.start()
+
+        except Exception as e:
+            logger.error(f"Pub/Sub client stopped with an error: {e}", exc_info=True)
+            self._set_state(ServiceBusState.ERROR)
+            self._error_event.set()
+            with self._stats_lock:
+                self._stats["last_error"] = str(e)
         finally:
             self._cleanup()
-            logger.info("ServiceBus arrêté.")
+            logger.info("ServiceBus thread finished.")
 
     def _register_enhanced_handlers(self):
         """Enregistre les handlers avec gestion des stats et événements."""
-        import uuid
-        from typing import Dict, Any
-
         for event_name, handler_infos in self._handlers.items():
             def create_master_handler(evt_name, handlers_list):
                 def _master_handler(message: Dict[str, Any]):
                     if isinstance(message, str) and message.startswith("Subscribed to"):
                         return
 
-                    # Incrémenter les stats
                     with self._stats_lock:
                         self._stats["messages_received"] += 1
 
-                    # Créer un PubSubMessage
                     message_id = message.get("message_id", str(uuid.uuid4()))
-                    producer = message.get("producer", "unknown")
-                    pubsub_msg = PubSubMessage(
-                        topic=evt_name,
-                        message_id=message_id,
-                        message=message,
-                        producer=producer
-                    )
-
-                    # Vérifier si c'est une réponse attendue
                     event_future = self._event_manager.get_event(message_id)
+
+                    validated_payload = self._validate_payload(evt_name, message)
+                    if validated_payload is None:
+                        return
+
+                    # Si c'est une réponse attendue, on résout le Future
                     if event_future:
                         self._event_manager.remove_event(message_id)
                         with self._pending_lock:
                             self._pending_events.pop(message_id, None)
-                        event_future.set_result(pubsub_msg)
+                        # La réponse est le payload validé, pas le message brut
+                        event_future.set_result(validated_payload)
 
-                    # Valider le payload
-                    event_class = self._event_schemas.get(evt_name)
-                    validated_payload = message
-
-                    if event_class:
-                        try:
-                            if not isinstance(message, dict):
-                                logger.warning(f"Message inattendu pour {evt_name}")
-                                return
-                            validated_payload = event_class(**message)
-                        except TypeError as e:
-                            logger.error(f"Erreur validation pour '{evt_name}': {e}")
-                            with self._stats_lock:
-                                self._stats["messages_failed"] += 1
-                            return
-
-                    # Exécuter les handlers dans le thread pool avec retry
                     for handler_info in handlers_list:
                         self._executor.submit(
                             self._execute_handler_with_retry,
                             handler_info,
-                            validated_payload,
-                            pubsub_msg
+                            validated_payload
                         )
-
                 return _master_handler
-
             master_handler = create_master_handler(event_name, handler_infos)
             self.client.register_handler(event_name, master_handler)
 
-    def _execute_handler_with_retry(self, handler_info, validated_payload: Any, pubsub_msg: PubSubMessage) -> None:
+    def _validate_payload(self, event_name: str, message: Dict[str, Any]) -> Optional[Any]:
+        """Valide et déserialise le payload, retourne l'objet ou None."""
+        event_class = self._event_schemas.get(event_name)
+        if not event_class:
+            return message
+
+        try:
+            if not isinstance(message, dict):
+                logger.warning(f"Unexpected message type for {event_name}, expected dict, got {type(message)}")
+                return None
+            return event_class(**message)
+        except Exception as e:
+            logger.error(f"Validation error for '{event_name}': {e}. Message: {message}", exc_info=True)
+            with self._stats_lock:
+                self._stats["messages_failed"] += 1
+            return None
+
+    def _execute_handler_with_retry(self, handler_info, validated_payload: Any) -> None:
         """Exécute un handler avec retry et gestion d'erreurs."""
         attempts = 0
         delay = self._retry_policy["initial_delay"]
+        max_attempts = self._retry_policy["max_attempts"]
 
-        while attempts < self._retry_policy["max_attempts"]:
+        while attempts < max_attempts:
             try:
-                # Exécuter le handler
-                handler_info.handler(validated_payload)
+                result = handler_info.handler(validated_payload)
 
-                # Notifier la consommation
-                self.client.notify_consumption(pubsub_msg, handler_info.handler_name)
+                # Si le handler retourne une valeur (pour les RPC), on la publie comme réponse
+                if result is not None and hasattr(validated_payload, 'message_id'):
+                    response_topic = f"response.{validated_payload.topic}"
+                    self.publish(response_topic, result, self.consumer_name)
 
-                # Marquer comme succès
                 with self._stats_lock:
                     self._stats["messages_processed"] += 1
-
-                return  # Succès
-
+                return
             except Exception as e:
                 attempts += 1
-                if attempts >= self._retry_policy["max_attempts"]:
-                    logger.error(f"Handler '{handler_info.handler.__name__}' failed after {attempts} attempts: {e}")
+                if attempts >= max_attempts:
+                    logger.error(f"Handler '{handler_info.handler_name}' failed after {attempts} attempts for topic '{validated_payload.topic}': {e}", exc_info=True)
                     with self._stats_lock:
                         self._stats["messages_failed"] += 1
                 else:
-                    logger.warning(f"Handler retry {attempts}/{self._retry_policy['max_attempts']} for {pubsub_msg.topic}")
+                    logger.warning(f"Handler retry {attempts}/{max_attempts} for topic '{validated_payload.topic}': {e}")
                     time.sleep(delay)
                     delay = min(delay * self._retry_policy["exponential_base"], self._retry_policy["max_delay"])
 
     def _cleanup(self) -> None:
         """Nettoie toutes les ressources."""
-        logger.info("Nettoyage du ServiceBus...")
-
-        # Arrêter le thread pool
+        logger.info("Cleaning up ServiceBus resources...")
         self._executor.shutdown(wait=True)
-
-        # Nettoyer les futures en attente
         with self._pending_lock:
             for event_future in self._pending_events.values():
                 event_future.set_exception(RuntimeError("ServiceBus stopped"))
             self._pending_events.clear()
 
-        self._set_state(ServiceBusState.STOPPED)
-
     def stop(self, timeout: float = 10.0) -> bool:
         """
         Arrête le ServiceBus de manière propre.
-
-        Args:
-            timeout: Temps maximum d'attente pour l'arrêt
-
-        Returns:
-            True si arrêté proprement, False si timeout
         """
         if self.state in (ServiceBusState.STOPPED, ServiceBusState.STOPPING):
             return True
@@ -474,5 +388,5 @@ class EnhancedServiceBus(ServiceBusBase):
         with self._stats_lock:
             stats = self._stats.copy()
             if stats["start_time"]:
-                stats["uptime"] = int(time.time() - stats["start_time"])
+                stats["uptime"] = time.time() - stats["start_time"]
             return stats

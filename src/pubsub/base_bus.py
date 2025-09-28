@@ -9,14 +9,10 @@ import uuid
 from dataclasses import asdict, is_dataclass
 from typing import Any, Callable, Dict, Optional, get_type_hints
 
-try:
-    from pydantic import BaseModel
-except ImportError:
-    BaseModel = None
+from pydantic import BaseModel
 
-from .logger import logger
 from .client import HandlerInfo, PubSubClient
-from .pubsub_message import PubSubMessage
+from .logger import logger
 
 
 class ServiceBusBase(threading.Thread):
@@ -133,22 +129,11 @@ class ServiceBusBase(threading.Thread):
                     if isinstance(message, str) and message.startswith("Subscribed to"):
                         return
 
-                    # Créer un PubSubMessage
-                    message_id = message.get("message_id", str(uuid.uuid4()))
-                    producer = message.get("producer", "unknown")
-                    pubsub_msg = PubSubMessage(
-                        topic=evt_name,
-                        message_id=message_id,
-                        message=message,
-                        producer=producer
-                    )
-
                     # Valider le payload
                     event_class = self._event_schemas.get(evt_name)
                     validated_payload = message
 
                     if event_class:
-                        # noinspection PyShadowingNames
                         try:
                             if not isinstance(message, dict):
                                 logger.warning(
@@ -162,10 +147,8 @@ class ServiceBusBase(threading.Thread):
 
                     # Exécuter les handlers
                     for handler_info in handlers_list:
-                        # noinspection PyShadowingNames
                         try:
                             handler_info.handler(validated_payload)
-                            self.client.notify_consumption(pubsub_msg, handler_info.handler_name)
                         except Exception as e:
                             logger.error(f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{evt_name}': {e}", exc_info=True)
 

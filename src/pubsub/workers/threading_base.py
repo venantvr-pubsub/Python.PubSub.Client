@@ -4,9 +4,9 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, List
 
-from .events import AllProcessingCompleted
-from .logger import logger
-from .service_bus import ServiceBus
+from ..base_bus import ServiceBusBase
+from ..events import AllProcessingCompleted
+from ..logger import logger
 
 
 class QueueWorkerThread(threading.Thread, ABC):
@@ -15,7 +15,7 @@ class QueueWorkerThread(threading.Thread, ABC):
     depuis une file d'attente (pattern Producer-Consumer).
     """
 
-    def __init__(self, service_bus: Optional[ServiceBus] = None, name: Optional[str] = None):
+    def __init__(self, service_bus: Optional[ServiceBusBase] = None, name: Optional[str] = None):
         """
         Initialise le thread de travail.
         :param service_bus: Le bus de services pour la communication par événements.
@@ -70,22 +70,14 @@ class QueueWorkerThread(threading.Thread, ABC):
 
     def stop(self) -> None:
         """
-        Arrête le thread PROPREMENT :
-        1. Attend que la file de travail soit vide.
-        2. Envoie le signal d'arrêt à la boucle 'run'.
-        3. Attend la terminaison effective du thread.
+        Arrête le thread PROPREMENT.
         """
         logger.info(f"Demande d'arrêt pour '{self.name}'. Attente de la fin des tâches en file...")
-
-        # ÉTAPE 1 : Attend que la file soit complètement vide.
         self.work_queue.join()
-
-        # ÉTAPE 2 : Arrête la boucle 'while' du thread.
         self._running = False
-        self.work_queue.put(None)  # Débloque le .get() qui pourrait être en attente.
-
-        # ÉTAPE 3 : Attend la terminaison du thread lui-même.
-        super().join()
+        self.work_queue.put(None)
+        if self.is_alive():
+            self.join()
         logger.info(f"Thread '{self.name}' a terminé toutes ses tâches et est arrêté.")
 
 
@@ -95,54 +87,44 @@ class OrchestratorBase(ABC):
     d'une application basée sur des services (threads).
     """
 
-    def __init__(self, service_bus: ServiceBus):
+    def __init__(self, service_bus: ServiceBusBase):
         self.service_bus = service_bus
         self.services: List[QueueWorkerThread] = []
         self._processing_completed = threading.Event()
 
-        # Le contrat : l'enfant doit fournir les services et les abonnements
         self.register_services()
         self.setup_event_subscriptions()
-
-        # La classe mère s'abonne à l'événement de fin universel
         self.service_bus.subscribe("AllProcessingCompleted", self._on_all_processing_completed)
 
     @abstractmethod
     def register_services(self) -> None:
-        """Les classes enfants doivent implémenter cette méthode pour créer et
-        ajouter leurs services à la liste self.services."""
         pass
 
     @abstractmethod
     def setup_event_subscriptions(self) -> None:
-        """Les classes enfants doivent s'abonner ici à leurs événements spécifiques."""
         pass
 
     @abstractmethod
     def start_workflow(self) -> None:
-        """Le point d'entrée pour lancer la logique métier de l'orchestrateur."""
         pass
 
     def _start_services(self) -> None:
-        """Démarre tous les services enregistrés, y compris le ServiceBus."""
         logger.info(f"Démarrage de {len(self.services)} services et du ServiceBus...")
-        all_services_to_manage = self.services + [self.service_bus]
-        for service in all_services_to_manage:
+        all_services = self.services + [self.service_bus]
+        for service in all_services:
             if not service.is_alive():
                 service.start()
-        time.sleep(1)  # Laisse le temps aux threads de démarrer
+        time.sleep(1)
 
     def _stop_services(self) -> None:
-        """Arrête tous les services enregistrés, y compris le ServiceBus."""
         logger.info("Arrêt de tous les services...")
-        all_services_to_manage = self.services + [self.service_bus]
-        for service in reversed(all_services_to_manage):
-            if service.is_alive():
+        all_services = self.services + [self.service_bus]
+        for service in reversed(all_services):
+            if hasattr(service, 'stop') and callable(service.stop):
                 service.stop()
         logger.info("Tous les services ont été arrêtés proprement.")
 
     def _on_all_processing_completed(self, _event: AllProcessingCompleted) -> None:
-        """Handler pour le signal de fin, qui débloque la méthode 'run'."""
         logger.info("Signal de fin d'analyse reçu. Déclenchement de l'arrêt.")
         self._processing_completed.set()
 
@@ -150,6 +132,6 @@ class OrchestratorBase(ABC):
         """Point d'entrée principal qui exécute le cycle de vie complet."""
         self._start_services()
         self.start_workflow()
-        self._processing_completed.wait()  # Bloque jusqu'à la réception du signal de fin
+        self._processing_completed.wait()
         self._stop_services()
         logger.info("Exécution de l'orchestrateur terminée.")

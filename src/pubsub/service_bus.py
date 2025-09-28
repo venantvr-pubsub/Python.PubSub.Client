@@ -8,7 +8,7 @@ Organisation:
 Pour la rétrocompatibilité, 'ServiceBus' est un alias vers ServiceBusBase.
 """
 
-from .enhanced_service_bus import (
+from .enhanced_bus import (
     EnhancedServiceBus,
     ServiceBusState,
     EventFuture,

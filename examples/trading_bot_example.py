@@ -2,16 +2,19 @@
 Exemple d'utilisation du ServiceBus amélioré pour un bot de trading.
 Utilise PubSubMessage comme conteneur d'événements avec synchronisation.
 """
+import logging
 import os
 import time
 from dataclasses import dataclass
 from typing import List
 
-from src.pubsub.logger import logger
-from src.pubsub.pubsub_message import PubSubMessage
 # Note: Using EnhancedServiceBus for advanced features like publish_and_wait
-from src.pubsub.service_bus import EnhancedServiceBus as ServiceBus
+from pubsub import EnhancedServiceBus as ServiceBus
+from pubsub import PubSubMessage
 
+# Configuration du logging pour cet exemple
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 @dataclass
 class OrderRequest:

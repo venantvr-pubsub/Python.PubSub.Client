@@ -4,10 +4,10 @@ from abc import ABC
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Optional
 
-from .events import WorkerFailed
-from .logger import logger
-from .service_bus import ServiceBus
 from .threading_base import QueueWorkerThread
+from ..base_bus import ServiceBusBase
+from ..events import WorkerFailed
+from ..logger import logger
 
 
 class ResilientWorkerThread(QueueWorkerThread, ABC):
@@ -18,7 +18,7 @@ class ResilientWorkerThread(QueueWorkerThread, ABC):
 
     def __init__(
             self,
-            service_bus: Optional[ServiceBus] = None,
+            service_bus: Optional[ServiceBusBase] = None,
             name: Optional[str] = None,
             task_timeout: int = 60,  # Timeout de 60 secondes par tâche
             max_consecutive_failures: int = 5,  # 5 échecs de suite max

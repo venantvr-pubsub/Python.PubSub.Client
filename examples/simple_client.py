@@ -1,7 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# examples/simple_client.py
-
 """Example usage of the PubSub Client with environment configuration.
 
 This script demonstrates how to use the PubSub client to subscribe to topics

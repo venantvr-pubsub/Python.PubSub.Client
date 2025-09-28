@@ -5,19 +5,38 @@ Pub/Sub servers, with automatic reconnection, message queuing,
 and topic-based subscription support.
 """
 
+from .base_bus import ServiceBusBase
+# Core components
+from .client import PubSubClient
+from .enhanced_bus import EnhancedServiceBus, ServiceBusState, EventFuture
+# Event models
 from .events import AllProcessingCompleted, WorkerFailed
-from .pubsub_client import PubSubClient
 from .pubsub_message import PubSubMessage
-from .resilient_worker import ResilientWorkerThread
-from .service_bus import ServiceBus
-from .threading_base import QueueWorkerThread, OrchestratorBase
+# Worker utilities
+from .workers import (
+    OrchestratorBase,
+    QueueWorkerThread,
+    ResilientWorkerThread,
+)
 
-__version__ = "0.1.0"
-__all__ = ["PubSubClient",
-           "PubSubMessage",
-           "AllProcessingCompleted",
-           "WorkerFailed",
-           "ServiceBus",
-           "QueueWorkerThread",
-           "OrchestratorBase",
-           "ResilientWorkerThread"]
+# Alias for backward compatibility and simple use cases
+ServiceBus = ServiceBusBase
+
+__version__ = "0.2.0"
+__all__ = [
+    # Core
+    "ServiceBus",
+    "ServiceBusBase",
+    "EnhancedServiceBus",
+    "PubSubClient",
+    "PubSubMessage",
+    "ServiceBusState",
+    "EventFuture",
+    # Events
+    "AllProcessingCompleted",
+    "WorkerFailed",
+    # Workers
+    "OrchestratorBase",
+    "QueueWorkerThread",
+    "ResilientWorkerThread",
+]

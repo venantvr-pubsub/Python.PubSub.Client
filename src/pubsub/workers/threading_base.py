@@ -4,6 +4,7 @@ import socketserver
 import threading
 import time
 from abc import ABC, abstractmethod
+from collections import deque
 from typing import Optional, List
 
 from ..base_bus import ServiceBusBase
@@ -11,6 +12,25 @@ from ..events import AllProcessingCompleted
 from ..logger import logger
 
 STATUS_PORT = 8000
+
+
+class InternalLogger:
+    """Une classe thread-safe pour stocker les derniers messages de log d'un worker."""
+
+    def __init__(self, maxlen: int = 10):
+        self._logs = deque(maxlen=maxlen)
+        self._lock = threading.Lock()
+
+    def log(self, message: str):
+        """Ajoute un message horodaté à la liste des logs."""
+        with self._lock:
+            timestamp = time.strftime("%H:%M:%S")
+            self._logs.append(f"[{timestamp}] {message}")
+
+    def get_logs(self) -> List[str]:
+        """Retourne une copie de la liste des logs actuels."""
+        with self._lock:
+            return list(self._logs)
 
 
 class QueueWorkerThread(threading.Thread, ABC):
@@ -30,8 +50,15 @@ class QueueWorkerThread(threading.Thread, ABC):
         self.work_queue = queue.Queue()
         self._running = True
 
+        self.internal_logs = InternalLogger(maxlen=10)
+        self._last_activity_time = time.time()
+
         if self.service_bus:
             self.setup_event_subscriptions()
+
+    def log_message(self, message: str):
+        """Enregistre un message de log interne pour ce thread via l'InternalLogger."""
+        self.internal_logs.log(message)
 
     def get_status(self) -> dict:
         """Retourne l'état de base du worker."""
@@ -39,6 +66,8 @@ class QueueWorkerThread(threading.Thread, ABC):
             "name": self.name,
             "is_alive": self.is_alive(),
             "tasks_in_queue": self.work_queue.qsize(),
+            "recent_logs": self.internal_logs.get_logs(),
+            "last_activity_time": self._last_activity_time,
         }
 
     @abstractmethod
@@ -64,6 +93,8 @@ class QueueWorkerThread(threading.Thread, ABC):
                 task = self.work_queue.get(timeout=1)
                 if task is None:  # Le signal d'arrêt
                     break
+
+                self._last_activity_time = time.time()
 
                 method_name, args, kwargs = task
                 try:
@@ -115,15 +146,49 @@ class _StatusServer(threading.Thread):
     def _update_html_content(self):
         statuses = [service.get_status() for service in self.services_to_monitor]
         html = """
-        <html><head><title>Statut des Services</title><meta http-equiv="refresh" content="5">
-        <meta charset="UTF-8">
-        <style>body{font-family:Arial,sans-serif;margin:2em;background-color:#f4f4f9;color:#333}h1{color:#333}table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}th,td{border:1px solid #ddd;padding:12px;text-align:left}th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#f2f2f2}.status-alive{color:#28a745;font-weight:700}.status-dead{color:#dc3545;font-weight:700}</style>
+        <html><head><title>Statut des Services</title><meta http-equiv="refresh" content="5"><meta charset="UTF-8">
+        <style>
+            body{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4} h1,p{color:#d4d4d4}
+            table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+            th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
+            th{background-color:#0056b3;color:#fff} tr:nth-child(even){background-color:#3c3c3c}
+            .status-alive{color:#4CAF50;font-weight:700} .status-dead{color:#dc3545;font-weight:700}
+            .logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block;}
+        </style>
         </head><body><h1>Statut des Threads</h1><p>Dernière mise à jour: """ + time.strftime("%Y-%m-%d %H:%M:%S") + """</p>
-        <table><tr><th>Service (Thread)</th><th>État</th><th>Tâches en attente</th></tr>"""
+        <table>
+            <tr>
+                <th>Service (Thread)</th>
+                <th>État</th>
+                <th>Tâches en attente</th>
+                <th>Dernière Activité</th> <th>Logs Récents</th>
+            </tr>"""
         for status in statuses:
             status_class = "status-alive" if status.get("is_alive") else "status-dead"
             status_text = "Vivant" if status.get("is_alive") else "Arrêté"
-            html += f"""<tr><td>{status.get("name", "N/A")}</td><td class="{status_class}">{status_text}</td><td>{status.get("tasks_in_queue", "N/A")}</td></tr>"""
+
+            last_activity_ts = status.get("last_activity_time")
+            if last_activity_ts:
+                now = time.time()
+                delta_seconds = int(now - last_activity_ts)
+                last_activity_str = f"{time.strftime('%H:%M:%S', time.localtime(last_activity_ts))} ({delta_seconds}s ago)"
+            else:
+                last_activity_str = "N/A"
+
+            logs_html = "<div class='logs'>"
+            recent_logs = status.get("recent_logs", [])
+            if not recent_logs:
+                logs_html += "<i>Aucun log interne.</i>"
+            else:
+                logs_html += "\n".join(recent_logs)
+            logs_html += "</div>"
+
+            html += f"""<tr>
+                    <td>{status.get("name", "N/A")}</td>
+                    <td class="{status_class}">{status_text}</td>
+                    <td>{status.get("tasks_in_queue", "N/A")}</td>
+                    <td>{last_activity_str}</td> <td>{logs_html}</td>
+                </tr>"""
         html += "</table></body></html>"
         with self.html_lock:
             self.html_content = html

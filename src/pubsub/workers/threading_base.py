@@ -162,20 +162,20 @@ class _StatusServer(threading.Thread):
         default_html = '''<!DOCTYPE html>
 <html><head><title>Service Status</title>
 <meta http-equiv="refresh" content="5"><meta charset="UTF-8">
-<style>{{css_content}}</style></head>
+<style>$$CSS_CONTENT$$</style></head>
 <body><h1>Thread Status</h1>
-<p>Last update: {{update_time}}</p>
+<p>Last update: $$UPDATE_TIME$$</p>
 <table><tr><th>Service (Thread)</th><th>Status</th>
 <th>Queued Tasks</th><th>Last Activity</th><th>Recent Logs</th></tr>
-{{table_rows}}</table></body></html>'''
+$$TABLE_ROWS$$</table></body></html>'''
 
-        default_css = '''body{{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4}}
-h1,p{{color:#d4d4d4}}table{{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}}
-th,td{{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}}
-th{{background-color:#0056b3;color:#fff}}tr:nth-child(even){{background-color:#3c3c3c}}
-.status-alive{{color:#4CAF50;font-weight:700}}.status-dead{{color:#dc3545;font-weight:700}}
-.logs ul{{margin:0;padding-left:20px}}.logs li{{margin-bottom:4px}}
-.logs{{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block}}'''
+        default_css = '''body{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4}
+h1,p{color:#d4d4d4}table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
+th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#3c3c3c}
+.status-alive{color:#4CAF50;font-weight:700}.status-dead{color:#dc3545;font-weight:700}
+.logs ul{margin:0;padding-left:20px}.logs li{margin-bottom:4px}
+.logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block}'''
 
         try:
             if html_path.exists():
@@ -190,21 +190,13 @@ th{{background-color:#0056b3;color:#fff}}tr:nth-child(even){{background-color:#3
             else:
                 css_content = default_css
 
-            # Embed CSS in HTML if using file template
-            if '{{css_content}}' in html_template:
-                # Template uses double braces for format safety
-                html_template = html_template.replace('{{css_content}}', css_content)
-            elif '<link rel="stylesheet" href="status_page.css">' in html_template:
-                # Replace external CSS link with embedded CSS
-                html_template = html_template.replace(
-                    '<link rel="stylesheet" href="status_page.css">',
-                    f'<style>{css_content}</style>'
-                )
-
+            # The template already has CSS embedded, no need to replace anything
+            # Just return the template as is
             return html_template, css_content
         except Exception as e:
             logger.warning(f"Failed to load template files: {e}. Using defaults.")
-            return default_html.replace('{css_content}', default_css), default_css
+            # Replace CSS placeholder in default template
+            return default_html.replace('$$CSS_CONTENT$$', default_css), default_css
 
     def _update_html_content(self):
         statuses = [service.get_status() for service in self.services_to_monitor]
@@ -244,14 +236,9 @@ th{{background-color:#0056b3;color:#fff}}tr:nth-child(even){{background-color:#3
         # Support multiple placeholder formats for compatibility
         update_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
 
-        # Try different placeholder formats
+        # Replace all placeholders
         html = html_template.replace('$$UPDATE_TIME$$', update_time_str)
         html = html.replace('$$TABLE_ROWS$$', table_rows)
-        # Fallback for old formats
-        html = html.replace('{{update_time}}', update_time_str)
-        html = html.replace('{{table_rows}}', table_rows)
-        html = html.replace('{update_time}', update_time_str)
-        html = html.replace('{table_rows}', table_rows)
         with self.html_lock:
             self.html_content = html
 

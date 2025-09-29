@@ -190,8 +190,10 @@ th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#3c3c
             else:
                 css_content = default_css
 
-            # The template already has CSS embedded, no need to replace anything
-            # Just return the template as is
+            # Check if template needs CSS replacement
+            if '$$CSS_CONTENT$$' in html_template:
+                html_template = html_template.replace('$$CSS_CONTENT$$', css_content)
+
             return html_template, css_content
         except Exception as e:
             logger.warning(f"Failed to load template files: {e}. Using defaults.")

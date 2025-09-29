@@ -175,7 +175,7 @@ class _StatusServer(threading.Thread):
         except Exception as e:
             logger.error(f"Failed to load template files: {e}")
             raise RuntimeError(f"Template files not found at {template_dir}. "
-                             "Ensure status_page.html and status_page.css exist.")
+                               "Ensure status_page.html and status_page.css exist.")
 
     def _update_html_content(self):
         statuses = [service.get_status() for service in self.services_to_monitor]

@@ -154,6 +154,8 @@ class _StatusServer(threading.Thread):
             th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
             th{background-color:#0056b3;color:#fff} tr:nth-child(even){background-color:#3c3c3c}
             .status-alive{color:#4CAF50;font-weight:700} .status-dead{color:#dc3545;font-weight:700}
+            .logs ul{margin:0;padding-left:20px;}
+            .logs li{margin-bottom:4px;}
             .logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block;}
         </style>
         </head><body><h1>Statut des Threads</h1><p>Dernière mise à jour: """ + time.strftime("%Y-%m-%d %H:%M:%S") + """</p>
@@ -162,7 +164,8 @@ class _StatusServer(threading.Thread):
                 <th>Service (Thread)</th>
                 <th>État</th>
                 <th>Tâches en attente</th>
-                <th>Dernière Activité</th> <th>Logs Récents</th>
+                <th>Dernière Activité</th>
+                <th>Logs Récents</th>
             </tr>"""
         for status in statuses:
             status_class = "status-alive" if status.get("is_alive") else "status-dead"
@@ -176,19 +179,21 @@ class _StatusServer(threading.Thread):
             else:
                 last_activity_str = "N/A"
 
-            logs_html = "<div class='logs'>"
+            logs_html = "<div class='logs'><ul>"
             recent_logs = status.get("recent_logs", [])
             if not recent_logs:
-                logs_html += "<i>Aucun log interne.</i>"
+                logs_html += "<li><i>Aucun log interne.</i></li>"
             else:
-                logs_html += "\n".join(recent_logs)
-            logs_html += "</div>"
+                for log_entry in recent_logs:
+                    logs_html += f"<li>{log_entry}</li>"
+            logs_html += "</ul></div>"
 
             html += f"""<tr>
                     <td>{status.get("name", "N/A")}</td>
                     <td class="{status_class}">{status_text}</td>
                     <td>{status.get("tasks_in_queue", "N/A")}</td>
-                    <td>{last_activity_str}</td> <td>{logs_html}</td>
+                    <td>{last_activity_str}</td>
+                    <td>{logs_html}</td>
                 </tr>"""
         html += "</table></body></html>"
         with self.html_lock:

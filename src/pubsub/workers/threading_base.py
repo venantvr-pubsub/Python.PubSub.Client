@@ -12,7 +12,7 @@ from ..config import get_env
 from ..events import AllProcessingCompleted
 from ..logger import logger
 
-STATUS_PORT = 8000  # int(get_env("STATUS_PORT", "8000"))  # 8000
+DIAGNOSTIC_STATUS_PORT = int(get_env("DIAGNOSTIC_STATUS_PORT", "8000"))  # 8000
 
 
 class InternalLogger:
@@ -220,11 +220,11 @@ class _StatusServer(threading.Thread):
 
         try:
             # noinspection PyTypeChecker
-            self.httpd = socketserver.TCPServer(("", STATUS_PORT), StatusHandler)
-            logger.info(f"Serveur de statut écoute sur http://localhost:{STATUS_PORT}")
+            self.httpd = socketserver.TCPServer(("", DIAGNOSTIC_STATUS_PORT), StatusHandler)
+            logger.info(f"Serveur de statut écoute sur http://localhost:{DIAGNOSTIC_STATUS_PORT}")
             while self._running: self.httpd.handle_request()
         except OSError as e:
-            logger.error(f"Impossible de démarrer le serveur de statut sur le port {STATUS_PORT}. Port déjà utilisé ? Erreur: {e}")
+            logger.error(f"Impossible de démarrer le serveur de statut sur le port {DIAGNOSTIC_STATUS_PORT}. Port déjà utilisé ? Erreur: {e}")
 
     def stop(self):
         if not self._running: return

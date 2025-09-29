@@ -152,57 +152,34 @@ class _StatusServer(threading.Thread):
             time.sleep(5)
 
     # noinspection PyMethodMayBeStatic
-    def _load_template(self) -> tuple[str, str]:
+    def _load_template(self) -> str:
         """Load HTML template and CSS from files."""
         template_dir = Path(__file__).parent / "templates"
         html_path = template_dir / "status_page.html"
         css_path = template_dir / "status_page.css"
 
-        # Default templates if files don't exist
-        default_html = '''<!DOCTYPE html>
-<html><head><title>Service Status</title>
-<meta http-equiv="refresh" content="5"><meta charset="UTF-8">
-<style>$$CSS_CONTENT$$</style></head>
-<body><h1>Thread Status</h1>
-<p>Last update: $$UPDATE_TIME$$</p>
-<table><tr><th>Service (Thread)</th><th>Status</th>
-<th>Queued Tasks</th><th>Last Activity</th><th>Recent Logs</th></tr>
-$$TABLE_ROWS$$</table></body></html>'''
-
-        default_css = '''body{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4}
-h1,p{color:#d4d4d4}table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}
-th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
-th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#3c3c3c}
-.status-alive{color:#4CAF50;font-weight:700}.status-dead{color:#dc3545;font-weight:700}
-.logs ul{margin:0;padding-left:20px}.logs li{margin-bottom:4px}
-.logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block}'''
-
         try:
-            if html_path.exists():
-                with open(html_path, 'r', encoding='utf-8') as f:
-                    html_template = f.read()
-            else:
-                html_template = default_html
+            # Load HTML template
+            with open(html_path, 'r', encoding='utf-8') as f:
+                html_template = f.read()
 
-            if css_path.exists():
-                with open(css_path, 'r', encoding='utf-8') as f:
-                    css_content = f.read()
-            else:
-                css_content = default_css
+            # Load CSS content
+            with open(css_path, 'r', encoding='utf-8') as f:
+                css_content = f.read()
 
-            # Check if template needs CSS replacement
+            # Replace CSS placeholder in HTML template
             if '$$CSS_CONTENT$$' in html_template:
                 html_template = html_template.replace('$$CSS_CONTENT$$', css_content)
 
-            return html_template, css_content
+            return html_template
         except Exception as e:
-            logger.warning(f"Failed to load template files: {e}. Using defaults.")
-            # Replace CSS placeholder in default template
-            return default_html.replace('$$CSS_CONTENT$$', default_css), default_css
+            logger.error(f"Failed to load template files: {e}")
+            raise RuntimeError(f"Template files not found at {template_dir}. "
+                             "Ensure status_page.html and status_page.css exist.")
 
     def _update_html_content(self):
         statuses = [service.get_status() for service in self.services_to_monitor]
-        html_template, _ = self._load_template()
+        html_template = self._load_template()
 
         table_rows = ""
         for status in statuses:

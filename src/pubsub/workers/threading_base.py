@@ -241,10 +241,16 @@ th{{background-color:#0056b3;color:#fff}}tr:nth-child(even){{background-color:#3
                 </tr>"""
 
         # Use replace instead of format to avoid issues with CSS braces
-        html = html_template.replace('{{update_time}}', time.strftime("%Y-%m-%d %H:%M:%S"))
+        # Support multiple placeholder formats for compatibility
+        update_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Try different placeholder formats
+        html = html_template.replace('$$UPDATE_TIME$$', update_time_str)
+        html = html.replace('$$TABLE_ROWS$$', table_rows)
+        # Fallback for old formats
+        html = html.replace('{{update_time}}', update_time_str)
         html = html.replace('{{table_rows}}', table_rows)
-        # Handle old format placeholders if present (from file templates)
-        html = html.replace('{update_time}', time.strftime("%Y-%m-%d %H:%M:%S"))
+        html = html.replace('{update_time}', update_time_str)
         html = html.replace('{table_rows}', table_rows)
         with self.html_lock:
             self.html_content = html

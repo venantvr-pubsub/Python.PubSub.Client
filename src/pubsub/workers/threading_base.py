@@ -8,10 +8,11 @@ from collections import deque
 from typing import Optional, List
 
 from ..base_bus import ServiceBusBase
+from ..config import get_env
 from ..events import AllProcessingCompleted
 from ..logger import logger
 
-STATUS_PORT = 8000
+STATUS_PORT = int(get_env("STATUS_PORT", "8000"))  # 8000
 
 
 class InternalLogger:
@@ -197,6 +198,7 @@ class _StatusServer(threading.Thread):
         parent = self
 
         class StatusHandler(http.server.SimpleHTTPRequestHandler):
+
             def do_GET(self):
                 if self.path == '/':
                     self.send_response(200)

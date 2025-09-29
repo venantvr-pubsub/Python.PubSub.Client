@@ -44,6 +44,7 @@ class HandlerInfo:
 
 
 class PubSubClient:
+
     def __init__(self, url: str, consumer: str, topics: List[str]):
         """
         Initialize the PubSub client.

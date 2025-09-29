@@ -9,6 +9,7 @@ from rich.text import Text
 
 # Mocks pour permettre l'exécution du script sans les vraies classes
 class ServiceBusBase:
+
     # noinspection PyUnusedLocal
     def __init__(self, url, consumer_id): pass
 
@@ -18,6 +19,7 @@ class ServiceBusBase:
 
 
 class EnhancedServiceBus(ServiceBusBase):
+
     # noinspection PyUnusedLocal
     def __init__(self, url, consumer_id, max_workers=None, retry_policy=None):
         super().__init__(url, consumer_id)
@@ -25,6 +27,7 @@ class EnhancedServiceBus(ServiceBusBase):
 
 # noinspection PyPep8Naming
 class logger:
+
     @staticmethod
     def info(msg): print(f"INFO: {msg}")
 

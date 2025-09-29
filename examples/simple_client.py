@@ -188,6 +188,7 @@ def main() -> None:
 
         # Start publishing thread
         import threading
+
         publisher = threading.Thread(target=publish_test_messages, daemon=True)
         publisher.start()
         logger.info(f"📤 Auto-publishing enabled (interval: {message_interval}s)")

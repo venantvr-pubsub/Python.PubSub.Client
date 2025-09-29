@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Service Status</title>
+    <meta http-equiv="refresh" content="5">
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="status_page.css">
+</head>
+<body>
+    <h1>Thread Status</h1>
+    <p>Last update: {update_time}</p>
+    <table>
+        <tr>
+            <th>Service (Thread)</th>
+            <th>Status</th>
+            <th>Queued Tasks</th>
+            <th>Last Activity</th>
+            <th>Recent Logs</th>
+        </tr>
+        {table_rows}
+    </table>
+</body>
+</html>

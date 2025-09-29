@@ -5,6 +5,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections import deque
+from pathlib import Path
 from typing import Optional, List
 
 from ..base_bus import ServiceBusBase
@@ -12,39 +13,39 @@ from ..config import get_env
 from ..events import AllProcessingCompleted
 from ..logger import logger
 
-DIAGNOSTIC_STATUS_PORT = int(get_env("DIAGNOSTIC_STATUS_PORT", "8000"))  # 8000
+STATUS_PAGE_PORT = int(get_env("STATUS_PAGE_PORT", "8000"))  # 8000
 
 
 class InternalLogger:
-    """Une classe thread-safe pour stocker les derniers messages de log d'un worker."""
+    """A thread-safe class for storing a worker's latest log messages."""
 
     def __init__(self, maxlen: int = 10):
         self._logs = deque(maxlen=maxlen)
         self._lock = threading.Lock()
 
     def log(self, message: str):
-        """Ajoute un message horodaté à la liste des logs."""
+        """Adds a timestamped message to the log list."""
         with self._lock:
             timestamp = time.strftime("%H:%M:%S")
             self._logs.append(f"[{timestamp}] {message}")
 
     def get_logs(self) -> List[str]:
-        """Retourne une copie de la liste des logs actuels."""
+        """Returns a copy of the current log list."""
         with self._lock:
             return list(self._logs)
 
 
 class QueueWorkerThread(threading.Thread, ABC):
     """
-    Classe de base abstraite pour un thread de travail qui consomme des tâches
-    depuis une file d'attente (pattern Producer-Consumer).
+    Abstract base class for a worker thread that consumes tasks
+    from a queue (Producer-Consumer pattern).
     """
 
     def __init__(self, service_bus: Optional[ServiceBusBase] = None, name: Optional[str] = None):
         """
-        Initialise le thread de travail.
-        :param service_bus: Le bus de services pour la communication par événements.
-        :param name: Le nom du thread, utile pour les logs.
+        Initializes the worker thread.
+        :param service_bus: The service bus for event-based communication.
+        :param name: The thread name, useful for logs.
         """
         super().__init__(name=name or self.__class__.__name__)
         self.service_bus = service_bus
@@ -58,11 +59,11 @@ class QueueWorkerThread(threading.Thread, ABC):
             self.setup_event_subscriptions()
 
     def log_message(self, message: str):
-        """Enregistre un message de log interne pour ce thread via l'InternalLogger."""
+        """Records an internal log message for this thread via InternalLogger."""
         self.internal_logs.log(message)
 
     def get_status(self) -> dict:
-        """Retourne l'état de base du worker."""
+        """Returns the worker's base status."""
         return {
             "name": self.name,
             "is_alive": self.is_alive(),
@@ -74,25 +75,25 @@ class QueueWorkerThread(threading.Thread, ABC):
     @abstractmethod
     def setup_event_subscriptions(self) -> None:
         """
-        Méthode abstraite. Les classes enfants DOIVENT l'implémenter
-        pour s'abonner aux événements du ServiceBus.
+        Abstract method. Child classes MUST implement it
+        to subscribe to ServiceBus events.
         """
         pass
 
     def add_task(self, method_name: str, *args, **kwargs) -> None:
-        """Méthode utilitaire pour ajouter une tâche à la file d'attente."""
+        """Utility method to add a task to the queue."""
         self.work_queue.put((method_name, args, kwargs))
 
     def run(self) -> None:
         """
-        La boucle de travail principale. Gérée par la classe mère.
-        Elle récupère les tâches et appelle la méthode correspondante.
+        The main work loop. Managed by the parent class.
+        It retrieves tasks and calls the corresponding method.
         """
-        logger.info(f"Thread '{self.name}' démarré.")
+        logger.info(f"Thread '{self.name}' started.")
         while self._running:
             try:
                 task = self.work_queue.get(timeout=1)
-                if task is None:  # Le signal d'arrêt
+                if task is None:  # Stop signal
                     break
 
                 self._last_activity_time = time.time()
@@ -102,34 +103,40 @@ class QueueWorkerThread(threading.Thread, ABC):
                     method = getattr(self, method_name)
                     method(*args, **kwargs)
                 except Exception as e:
-                    logger.error(f"Erreur d'exécution de la tâche '{method_name}' dans '{self.name}': {e}", exc_info=True)
+                    logger.error(f"Error executing task '{method_name}' in '{self.name}': {e}", exc_info=True)
                 finally:
-                    # Crucial pour que queue.join() fonctionne !
+                    # Crucial for queue.join() to work!
                     self.work_queue.task_done()
             except queue.Empty:
                 continue
-        logger.info(f"La boucle de travail de '{self.name}' est terminée.")
+        logger.info(f"Work loop for '{self.name}' has ended.")
 
-    def stop(self) -> None:
+    def stop(self, timeout: Optional[float] = 30) -> None:
         """
-        Arrête le thread PROPREMENT.
+        Stops the thread GRACEFULLY with timeout protection.
         """
-        logger.info(f"Demande d'arrêt pour '{self.name}'. Attente de la fin des tâches en file...")
-        self.work_queue.join()
+        logger.info(f"Stop requested for '{self.name}'. Waiting for queued tasks to complete...")
+        # Add timeout protection to prevent infinite blocking
+        start_time = time.time()
+        while not self.work_queue.empty():
+            if timeout and (time.time() - start_time) > timeout:
+                logger.warning(f"Timeout reached while stopping '{self.name}'. Force stopping...")
+                break
+            time.sleep(0.1)
         self._running = False
         self.work_queue.put(None)
         if self.is_alive():
-            self.join()
-        logger.info(f"Thread '{self.name}' a terminé toutes ses tâches et est arrêté.")
+            self.join(timeout=5)  # Add timeout to prevent deadlock
+        logger.info(f"Thread '{self.name}' has completed all tasks and is stopped.")
 
 
 class _StatusServer(threading.Thread):
-    """Un serveur HTTP simple pour afficher le statut des workers."""
+    """A simple HTTP server to display worker status."""
 
     def __init__(self, services_to_monitor: List[QueueWorkerThread]):
         super().__init__(name="StatusServer", daemon=True)
         self.services_to_monitor = services_to_monitor
-        self.html_content = "<html><body>Initialisation...</body></html>"
+        self.html_content = "<html><body>Initializing...</body></html>"
         self.html_lock = threading.Lock()
         self._running = True
         self.httpd = None
@@ -144,32 +151,67 @@ class _StatusServer(threading.Thread):
             self._update_html_content()
             time.sleep(5)
 
+    # noinspection PyMethodMayBeStatic
+    def _load_template(self) -> tuple[str, str]:
+        """Load HTML template and CSS from files."""
+        template_dir = Path(__file__).parent / "templates"
+        html_path = template_dir / "status_page.html"
+        css_path = template_dir / "status_page.css"
+
+        # Default templates if files don't exist
+        default_html = '''<!DOCTYPE html>
+<html><head><title>Service Status</title>
+<meta http-equiv="refresh" content="5"><meta charset="UTF-8">
+<style>{css_content}</style></head>
+<body><h1>Thread Status</h1>
+<p>Last update: {update_time}</p>
+<table><tr><th>Service (Thread)</th><th>Status</th>
+<th>Queued Tasks</th><th>Last Activity</th><th>Recent Logs</th></tr>
+{table_rows}</table></body></html>'''
+
+        default_css = '''body{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4}
+h1,p{color:#d4d4d4}table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}
+th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
+th{background-color:#0056b3;color:#fff}tr:nth-child(even){background-color:#3c3c3c}
+.status-alive{color:#4CAF50;font-weight:700}.status-dead{color:#dc3545;font-weight:700}
+.logs ul{margin:0;padding-left:20px}.logs li{margin-bottom:4px}
+.logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block}'''
+
+        try:
+            if html_path.exists():
+                with open(html_path, 'r', encoding='utf-8') as f:
+                    html_template = f.read()
+            else:
+                html_template = default_html
+
+            if css_path.exists():
+                with open(css_path, 'r', encoding='utf-8') as f:
+                    css_content = f.read()
+            else:
+                css_content = default_css
+
+            # Embed CSS in HTML if using file template
+            if '{css_content}' not in html_template:
+                html_template = html_template.replace(
+                    '<link rel="stylesheet" href="status_page.css">',
+                    f'<style>{css_content}</style>'
+                )
+            else:
+                html_template = html_template.replace('{css_content}', css_content)
+
+            return html_template, css_content
+        except Exception as e:
+            logger.warning(f"Failed to load template files: {e}. Using defaults.")
+            return default_html.replace('{css_content}', default_css), default_css
+
     def _update_html_content(self):
         statuses = [service.get_status() for service in self.services_to_monitor]
-        html = """
-        <html><head><title>Statut des Services</title><meta http-equiv="refresh" content="5"><meta charset="UTF-8">
-        <style>
-            body{font-family:monospace;margin:2em;background-color:#2b2b2b;color:#d4d4d4} h1,p{color:#d4d4d4}
-            table{border-collapse:collapse;width:100%;box-shadow:0 2px 5px rgba(0,0,0,.1)}
-            th,td{border:1px solid #555;padding:12px;text-align:left;vertical-align:top}
-            th{background-color:#0056b3;color:#fff} tr:nth-child(even){background-color:#3c3c3c}
-            .status-alive{color:#4CAF50;font-weight:700} .status-dead{color:#dc3545;font-weight:700}
-            .logs ul{margin:0;padding-left:20px;}
-            .logs li{margin-bottom:4px;}
-            .logs{font-size:0.9em;white-space:pre-wrap;max-height:200px;overflow-y:auto;display:block;}
-        </style>
-        </head><body><h1>Statut des Threads</h1><p>Dernière mise à jour: """ + time.strftime("%Y-%m-%d %H:%M:%S") + """</p>
-        <table>
-            <tr>
-                <th>Service (Thread)</th>
-                <th>État</th>
-                <th>Tâches en attente</th>
-                <th>Dernière Activité</th>
-                <th>Logs Récents</th>
-            </tr>"""
+        html_template, _ = self._load_template()
+
+        table_rows = ""
         for status in statuses:
             status_class = "status-alive" if status.get("is_alive") else "status-dead"
-            status_text = "Vivant" if status.get("is_alive") else "Arrêté"
+            status_text = "Alive" if status.get("is_alive") else "Stopped"
 
             last_activity_ts = status.get("last_activity_time")
             if last_activity_ts:
@@ -182,20 +224,24 @@ class _StatusServer(threading.Thread):
             logs_html = "<div class='logs'><ul>"
             recent_logs = status.get("recent_logs", [])
             if not recent_logs:
-                logs_html += "<li><i>Aucun log interne.</i></li>"
+                logs_html += "<li><i>No internal logs.</i></li>"
             else:
                 for log_entry in recent_logs:
                     logs_html += f"<li>{log_entry}</li>"
             logs_html += "</ul></div>"
 
-            html += f"""<tr>
+            table_rows += f"""<tr>
                     <td>{status.get("name", "N/A")}</td>
                     <td class="{status_class}">{status_text}</td>
                     <td>{status.get("tasks_in_queue", "N/A")}</td>
                     <td>{last_activity_str}</td>
                     <td>{logs_html}</td>
                 </tr>"""
-        html += "</table></body></html>"
+
+        html = html_template.format(
+            update_time=time.strftime("%Y-%m-%d %H:%M:%S"),
+            table_rows=table_rows
+        )
         with self.html_lock:
             self.html_content = html
 
@@ -220,25 +266,33 @@ class _StatusServer(threading.Thread):
 
         try:
             # noinspection PyTypeChecker
-            self.httpd = socketserver.TCPServer(("", DIAGNOSTIC_STATUS_PORT), StatusHandler)
-            logger.info(f"Serveur de statut écoute sur http://localhost:{DIAGNOSTIC_STATUS_PORT}")
-            while self._running: self.httpd.handle_request()
+            self.httpd = socketserver.TCPServer(("", STATUS_PAGE_PORT), StatusHandler)
+            logger.info(f"Status server listening on http://localhost:{STATUS_PAGE_PORT}")
+            # Use timeout to prevent blocking on shutdown
+            self.httpd.timeout = 1
+            while self._running:
+                self.httpd.handle_request()
         except OSError as e:
-            logger.error(f"Impossible de démarrer le serveur de statut sur le port {DIAGNOSTIC_STATUS_PORT}. Port déjà utilisé ? Erreur: {e}")
+            logger.error(f"Unable to start status server on port {STATUS_PAGE_PORT}. Port already in use? Error: {e}")
 
     def stop(self):
         if not self._running: return
         self._running = False
-        if self.httpd: self.httpd.server_close()
+        if self.httpd:
+            try:
+                self.httpd.shutdown()
+                self.httpd.server_close()
+            except Exception as e:
+                logger.warning(f"Error stopping HTTP server: {e}")
 
 
 class OrchestratorBase(ABC):
     """
-    Classe de base pour un orchestrateur qui gère le cycle de vie
-    d'une application basée sur des services (threads).
+    Base class for an orchestrator that manages the lifecycle
+    of a service-based (threads) application.
     """
 
-    def __init__(self, service_bus: ServiceBusBase, enable_status_page: bool = True):  # <-- MODIFICATION
+    def __init__(self, service_bus: ServiceBusBase, enable_status_page: bool = True):
         self.service_bus = service_bus
         self.services: List[QueueWorkerThread] = []
         self._processing_completed = threading.Event()
@@ -246,10 +300,10 @@ class OrchestratorBase(ABC):
         self._status_server: Optional[_StatusServer] = None
 
         if enable_status_page:
-            self.register_services()  # On doit enregistrer les services d'abord
+            self.register_services()  # Must register services first
             self._status_server = _StatusServer(self.services)
 
-        if not self.services:  # S'assurer que register_services a été appelé
+        if not self.services:  # Ensure register_services was called
             self.register_services()
 
         self.setup_event_subscriptions()
@@ -269,7 +323,7 @@ class OrchestratorBase(ABC):
 
     # noinspection PyTypeChecker
     def _start_services(self) -> None:
-        logger.info(f"Démarrage de {len(self.services)} services et du ServiceBus...")
+        logger.info(f"Starting {len(self.services)} services and ServiceBus...")
         all_services = self.services + [self.service_bus]
         if self._status_server:
             all_services.append(self._status_server)
@@ -281,7 +335,7 @@ class OrchestratorBase(ABC):
 
     # noinspection PyTypeChecker
     def _stop_services(self) -> None:
-        logger.info("Arrêt de tous les services...")
+        logger.info("Stopping all services...")
         all_services = self.services + [self.service_bus]
         if self._status_server:
             all_services.append(self._status_server)
@@ -289,16 +343,16 @@ class OrchestratorBase(ABC):
         for service in reversed(all_services):
             if hasattr(service, 'stop') and callable(service.stop):
                 service.stop()
-        logger.info("Tous les services ont été arrêtés proprement.")
+        logger.info("All services have been stopped gracefully.")
 
     def _on_all_processing_completed(self, _event: AllProcessingCompleted) -> None:
-        logger.info("Signal de fin d'analyse reçu. Déclenchement de l'arrêt.")
+        logger.info("Processing completion signal received. Triggering shutdown.")
         self._processing_completed.set()
 
     def run(self) -> None:
-        """Point d'entrée principal qui exécute le cycle de vie complet."""
+        """Main entry point that executes the complete lifecycle."""
         self._start_services()
         self.start_workflow()
         self._processing_completed.wait()
         self._stop_services()
-        logger.info("Exécution de l'orchestrateur terminée.")
+        logger.info("Orchestrator execution completed.")

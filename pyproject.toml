@@ -57,6 +57,9 @@ Repository = "https://github.com/venantvr/Python.PubSub.Client.git"
 where = ["src"]
 include = ["pubsub*"]
 
+[tool.setuptools.package-data]
+pubsub = ["workers/templates/*.html", "workers/templates/*.css"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]

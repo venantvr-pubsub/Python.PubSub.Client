@@ -1,0 +1,3 @@
+include src/pubsub/workers/templates/*.html
+include src/pubsub/workers/templates/*.css
+recursive-include src/pubsub/workers/templates *.html *.css

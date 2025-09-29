@@ -12,7 +12,7 @@ from ..config import get_env
 from ..events import AllProcessingCompleted
 from ..logger import logger
 
-STATUS_PORT = int(get_env("STATUS_PORT", "8000"))  # 8000
+STATUS_PORT = 8000  # int(get_env("STATUS_PORT", "8000"))  # 8000
 
 
 class InternalLogger:

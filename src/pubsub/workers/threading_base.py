@@ -139,16 +139,27 @@ class _StatusServer(threading.Thread):
         self.html_content = "<html><body>Initializing...</body></html>"
         self.html_lock = threading.Lock()
         self._running = True
+        self._server_ready = threading.Event()
+        self._shutdown_complete = threading.Event()
         self.httpd = None
+        self.html_generator_thread = None
 
     def run(self):
-        html_generator_thread = threading.Thread(target=self._generate_status_loop, daemon=True)
-        html_generator_thread.start()
+        self.html_generator_thread = threading.Thread(target=self._generate_status_loop, daemon=True)
+        self.html_generator_thread.start()
         self._start_http_server()
+        self._shutdown_complete.set()
 
     def _generate_status_loop(self):
+        """Continuously updates HTML content with error recovery."""
         while self._running:
-            self._update_html_content()
+            try:
+                self._update_html_content()
+            except Exception as e:
+                logger.error(f"Error updating status HTML: {e}", exc_info=True)
+                # Set fallback content on error
+                with self.html_lock:
+                    self.html_content = f"<html><body><h1>Status Server Error</h1><p>Failed to generate status page: {e}</p></body></html>"
             time.sleep(5)
 
     # noinspection PyMethodMayBeStatic
@@ -227,42 +238,65 @@ class _StatusServer(threading.Thread):
         class StatusHandler(http.server.SimpleHTTPRequestHandler):
 
             def do_GET(self):
-                if self.path == '/':
-                    self.send_response(200)
-                    self.send_header("Content-type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    with parent.html_lock:
-                        self.wfile.write(bytes(parent.html_content, "utf8"))
-                else:
-                    self.send_error(404, "File Not Found")
+                try:
+                    if self.path == '/':
+                        self.send_response(200)
+                        self.send_header("Content-type", "text/html; charset=utf-8")
+                        self.end_headers()
+                        with parent.html_lock:
+                            self.wfile.write(bytes(parent.html_content, "utf8"))
+                    else:
+                        self.send_error(404, "File Not Found")
+                except Exception as e:
+                    logger.error(f"Error handling HTTP request: {e}", exc_info=True)
 
             # noinspection PyShadowingBuiltins
             def log_message(self, format, *args):
                 return
 
         try:
+            # Allow socket reuse to prevent "Address already in use" errors
+            socketserver.TCPServer.allow_reuse_address = True
             # noinspection PyTypeChecker
             self.httpd = socketserver.TCPServer(("", STATUS_PAGE_PORT), StatusHandler)
-            logger.info(f"Status server listening on http://localhost:{STATUS_PAGE_PORT}")
-            # Use timeout to prevent blocking on shutdown
             self.httpd.timeout = 1
+            logger.info(f"Status server listening on http://localhost:{STATUS_PAGE_PORT}")
+            self._server_ready.set()
+
+            # Serve requests until stopped
             while self._running:
-                self.httpd.handle_request()
+                try:
+                    self.httpd.handle_request()
+                except Exception as e:
+                    if self._running:  # Only log if we're still supposed to be running
+                        logger.error(f"Error in HTTP server loop: {e}", exc_info=True)
+
         except OSError as e:
             logger.error(f"Unable to start status server on port {STATUS_PAGE_PORT}. Port already in use? Error: {e}")
+            self._server_ready.set()  # Signal ready even on failure so startup doesn't block
+        except Exception as e:
+            logger.error(f"Unexpected error starting HTTP server: {e}", exc_info=True)
+            self._server_ready.set()
+        finally:
+            if self.httpd:
+                try:
+                    self.httpd.server_close()
+                except Exception as e:
+                    logger.warning(f"Error closing HTTP server: {e}")
 
-    def stop(self):
-        if not self._running: return
+    def stop(self, timeout: float = 5.0):
+        """Stops the status server gracefully with proper cleanup."""
+        if not self._running:
+            return
+
         logger.info(f"Stopping status server on port {STATUS_PAGE_PORT}...")
         self._running = False
-        if self.httpd:
-            try:
-                # Don't use shutdown() with handle_request() loop
-                # Just close the server socket
-                self.httpd.server_close()
-                logger.info(f"Status server on port {STATUS_PAGE_PORT} stopped successfully")
-            except Exception as e:
-                logger.warning(f"Error stopping HTTP server: {e}")
+
+        # Wait for the server thread to finish its current operation
+        if not self._shutdown_complete.wait(timeout=timeout):
+            logger.warning(f"Status server did not shut down cleanly within {timeout}s")
+
+        logger.info(f"Status server on port {STATUS_PAGE_PORT} stopped successfully")
 
 
 class OrchestratorBase(ABC):
@@ -310,7 +344,15 @@ class OrchestratorBase(ABC):
         for service in all_services:
             if not service.is_alive():
                 service.start()
-        time.sleep(1)
+
+        # Wait for status server to be ready if it exists
+        if self._status_server:
+            # noinspection PyProtectedMember
+            if not self._status_server._server_ready.wait(timeout=5):
+                logger.warning("Status server did not become ready within 5 seconds")
+
+        # Give other services a moment to initialize
+        time.sleep(0.5)
 
     # noinspection PyTypeChecker
     def _stop_services(self) -> None:

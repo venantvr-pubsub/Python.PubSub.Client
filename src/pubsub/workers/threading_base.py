@@ -248,7 +248,7 @@ class _StatusServer(threading.Thread):
                     else:
                         self.send_error(404, "File Not Found")
                 except Exception as e:
-                    logger.error(f"Error handling HTTP request: {e}", exc_info=True)
+                    logger.error(f"Error handling HTTP request: {e}", exc_info=False)
 
             # noinspection PyShadowingBuiltins
             def log_message(self, format, *args):

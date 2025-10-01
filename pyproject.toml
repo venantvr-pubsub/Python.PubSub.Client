@@ -58,7 +58,7 @@ where = ["src"]
 include = ["pubsub*"]
 
 [tool.setuptools.package-data]
-pubsub = ["workers/templates/*.html", "workers/templates/*.css"]
+pubsub = ["workers/templates/*.html", "workers/templates/*.css", "workers/templates/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

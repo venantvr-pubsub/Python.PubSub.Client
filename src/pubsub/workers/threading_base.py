@@ -1,19 +1,14 @@
-import http.server
 import queue
-import socketserver
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections import deque
-from pathlib import Path
 from typing import Optional, List
 
+from .status_server import StatusServer
 from ..base_bus import ServiceBusBase
-from ..config import get_env
 from ..events import AllProcessingCompleted
 from ..logger import logger
-
-STATUS_PAGE_PORT = int(get_env("STATUS_PAGE_PORT", "8000"))  # 8000
 
 
 class InternalLogger:
@@ -130,175 +125,6 @@ class QueueWorkerThread(threading.Thread, ABC):
         logger.info(f"Thread '{self.name}' has completed all tasks and is stopped.")
 
 
-class _StatusServer(threading.Thread):
-    """A simple HTTP server to display worker status."""
-
-    def __init__(self, services_to_monitor: List[QueueWorkerThread]):
-        super().__init__(name="StatusServer", daemon=True)
-        self.services_to_monitor = services_to_monitor
-        self.html_content = "<html><body>Initializing...</body></html>"
-        self.html_lock = threading.Lock()
-        self._running = True
-        self._server_ready = threading.Event()
-        self._shutdown_complete = threading.Event()
-        self.httpd = None
-        self.html_generator_thread = None
-
-    def run(self):
-        self.html_generator_thread = threading.Thread(target=self._generate_status_loop, daemon=True)
-        self.html_generator_thread.start()
-        self._start_http_server()
-        self._shutdown_complete.set()
-
-    def _generate_status_loop(self):
-        """Continuously updates HTML content with error recovery."""
-        while self._running:
-            try:
-                self._update_html_content()
-            except Exception as e:
-                logger.error(f"Error updating status HTML: {e}", exc_info=True)
-                # Set fallback content on error
-                with self.html_lock:
-                    self.html_content = f"<html><body><h1>Status Server Error</h1><p>Failed to generate status page: {e}</p></body></html>"
-            time.sleep(5)
-
-    # noinspection PyMethodMayBeStatic
-    def _load_template(self) -> str:
-        """Load HTML template and CSS from files."""
-        template_dir = Path(__file__).parent / "templates"
-        html_path = template_dir / "status_page.html"
-        css_path = template_dir / "status_page.css"
-
-        try:
-            # Load HTML template
-            with open(html_path, 'r', encoding='utf-8') as f:
-                html_template = f.read()
-
-            # Load CSS content
-            with open(css_path, 'r', encoding='utf-8') as f:
-                css_content = f.read()
-
-            # Replace CSS placeholder in HTML template
-            if '$$CSS_CONTENT$$' in html_template:
-                html_template = html_template.replace('$$CSS_CONTENT$$', css_content)
-
-            return html_template
-        except Exception as e:
-            logger.error(f"Failed to load template files: {e}")
-            raise RuntimeError(f"Template files not found at {template_dir}. "
-                               "Ensure status_page.html and status_page.css exist.")
-
-    def _update_html_content(self):
-        statuses = [service.get_status() for service in self.services_to_monitor]
-        html_template = self._load_template()
-
-        table_rows = ""
-        for status in statuses:
-            status_class = "status-alive" if status.get("is_alive") else "status-dead"
-            status_text = "Alive" if status.get("is_alive") else "Stopped"
-
-            last_activity_ts = status.get("last_activity_time")
-            if last_activity_ts:
-                now = time.time()
-                delta_seconds = int(now - last_activity_ts)
-                last_activity_str = f"{time.strftime('%H:%M:%S', time.localtime(last_activity_ts))} ({delta_seconds}s ago)"
-            else:
-                last_activity_str = "N/A"
-
-            logs_html = "<div class='logs'><ul>"
-            recent_logs = status.get("recent_logs", [])
-            if not recent_logs:
-                logs_html += "<li><i>No internal logs.</i></li>"
-            else:
-                for log_entry in recent_logs:
-                    logs_html += f"<li>{log_entry}</li>"
-            logs_html += "</ul></div>"
-
-            table_rows += f"""<tr>
-                    <td>{status.get("name", "N/A")}</td>
-                    <td class="{status_class}">{status_text}</td>
-                    <td>{status.get("tasks_in_queue", "N/A")}</td>
-                    <td>{last_activity_str}</td>
-                    <td>{logs_html}</td>
-                </tr>"""
-
-        # Use replace instead of format to avoid issues with CSS braces
-        # Support multiple placeholder formats for compatibility
-        update_time_str = time.strftime("%Y-%m-%d %H:%M:%S")
-
-        # Replace all placeholders
-        html = html_template.replace('$$UPDATE_TIME$$', update_time_str)
-        html = html.replace('$$TABLE_ROWS$$', table_rows)
-        with self.html_lock:
-            self.html_content = html
-
-    def _start_http_server(self):
-        parent = self
-
-        class StatusHandler(http.server.SimpleHTTPRequestHandler):
-
-            def do_GET(self):
-                try:
-                    if self.path == '/':
-                        self.send_response(200)
-                        self.send_header("Content-type", "text/html; charset=utf-8")
-                        self.end_headers()
-                        with parent.html_lock:
-                            self.wfile.write(bytes(parent.html_content, "utf8"))
-                    else:
-                        self.send_error(404, "File Not Found")
-                except Exception as e:
-                    logger.error(f"Error handling HTTP request: {e}", exc_info=False)
-
-            # noinspection PyShadowingBuiltins
-            def log_message(self, format, *args):
-                return
-
-        try:
-            # Allow socket reuse to prevent "Address already in use" errors
-            socketserver.TCPServer.allow_reuse_address = True
-            # noinspection PyTypeChecker
-            self.httpd = socketserver.TCPServer(("", STATUS_PAGE_PORT), StatusHandler)
-            self.httpd.timeout = 1
-            logger.info(f"Status server listening on http://localhost:{STATUS_PAGE_PORT}")
-            self._server_ready.set()
-
-            # Serve requests until stopped
-            while self._running:
-                try:
-                    self.httpd.handle_request()
-                except Exception as e:
-                    if self._running:  # Only log if we're still supposed to be running
-                        logger.error(f"Error in HTTP server loop: {e}", exc_info=True)
-
-        except OSError as e:
-            logger.error(f"Unable to start status server on port {STATUS_PAGE_PORT}. Port already in use? Error: {e}")
-            self._server_ready.set()  # Signal ready even on failure so startup doesn't block
-        except Exception as e:
-            logger.error(f"Unexpected error starting HTTP server: {e}", exc_info=True)
-            self._server_ready.set()
-        finally:
-            if self.httpd:
-                try:
-                    self.httpd.server_close()
-                except Exception as e:
-                    logger.warning(f"Error closing HTTP server: {e}")
-
-    def stop(self, timeout: float = 5.0):
-        """Stops the status server gracefully with proper cleanup."""
-        if not self._running:
-            return
-
-        logger.info(f"Stopping status server on port {STATUS_PAGE_PORT}...")
-        self._running = False
-
-        # Wait for the server thread to finish its current operation
-        if not self._shutdown_complete.wait(timeout=timeout):
-            logger.warning(f"Status server did not shut down cleanly within {timeout}s")
-
-        logger.info(f"Status server on port {STATUS_PAGE_PORT} stopped successfully")
-
-
 class OrchestratorBase(ABC):
     """
     Base class for an orchestrator that manages the lifecycle
@@ -310,11 +136,12 @@ class OrchestratorBase(ABC):
         self.services: List[QueueWorkerThread] = []
         self._processing_completed = threading.Event()
 
-        self._status_server: Optional[_StatusServer] = None
+        # Le type hint et l'instanciation utilisent maintenant la classe importée
+        self._status_server: Optional[StatusServer] = None
 
         if enable_status_page:
             self.register_services()  # Must register services first
-            self._status_server = _StatusServer(self.services)
+            self._status_server = StatusServer(self.services)
 
         if not self.services:  # Ensure register_services was called
             self.register_services()

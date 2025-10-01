@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 import requests
 import socketio
 
+from .idempotence_filter import IdempotenceFilter
 from .logger import logger
 from .pubsub_message import PubSubMessage
 
@@ -45,13 +46,15 @@ class HandlerInfo:
 
 class PubSubClient:
 
-    def __init__(self, url: str, consumer: str, topics: List[str]):
+    def __init__(self, url: str, consumer: str, topics: List[str], enable_idempotence: bool = False, idempotence_max_size: int = 1000):
         """
         Initialize the PubSub client.
 
         :param url: URL of the Socket.IO server, e.g., http://localhost:5000
         :param consumer: Consumer name (e.g., 'DataFetcher')
         :param topics: List of topics to subscribe to
+        :param enable_idempotence: Enable idempotence filtering (default: False)
+        :param idempotence_max_size: Maximum number of message_id to keep for idempotence (default: 1000)
         """
         reconnection_str = os.getenv("PUBSUB_RECONNECTION_ENABLED", "true").lower()
         reconnection = reconnection_str in ("true", "1", "yes", "on")
@@ -67,6 +70,11 @@ class PubSubClient:
         self.running = False
         self._stop_event = threading.Event()
         self._worker_thread: Optional[threading.Thread] = None
+
+        # Filtre d'idempotence optionnel
+        self._idempotence_filter: Optional[IdempotenceFilter] = None
+        if enable_idempotence:
+            self._idempotence_filter = IdempotenceFilter(max_size=idempotence_max_size)
 
         # Utiliser un ThreadPoolExecutor pour exécuter les handlers de manière non-bloquante
         self._handler_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix=f"{consumer}-handler")
@@ -137,16 +145,27 @@ class PubSubClient:
         """Executes the handler in a dedicated thread and handles logging and consumption notification."""
         topic = data.get("topic")
         message = data.get("message")
+        message_id = data.get("message_id")
+
+        # Vérifier l'idempotence si activée
+        if self._idempotence_filter is not None:
+            if not self._idempotence_filter.should_process(message_id):
+                logger.info(
+                    f"[{self.consumer}] {RED_ON_YELLOW}Duplicate message{RESET} skipped from topic [{BLACK_ON_YELLOW}{topic}{RESET}]: "
+                    f"ID={message_id}"
+                )
+                return
+
         try:
             logger.info(
                 f"[{self.consumer}] Processing message from topic [{BLACK_ON_YELLOW}{topic}{RESET}]: "
-                f" (from {data.get('producer')}, ID={data.get('message_id')})"
+                f" (from {data.get('producer')}, ID={message_id})"
             )
             handler_info.handler(message)
 
             pubsub_message = PubSubMessage(
                 topic=topic,
-                message_id=data.get("message_id"),
+                message_id=message_id,
                 message=message,
                 producer=data.get("producer")
             )

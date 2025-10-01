@@ -15,6 +15,11 @@ A simple, robust, and production-ready WebSocket Pub/Sub client for Python, buil
 - 🧪 **Type hints** for better IDE support
 - ⚡ **Async message processing** with threading
 - 🛡️ **Error handling** with graceful degradation
+- 🔁 **Idempotence support** to prevent duplicate message processing
+
+## 📚 Documentation
+
+- [Idempotence Guide](IDEMPOTENCE.md) - Learn about idempotence classes and preventing duplicate message processing
 
 ## 📦 Installation
 

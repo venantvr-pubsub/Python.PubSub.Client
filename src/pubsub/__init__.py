@@ -10,6 +10,7 @@ from .base_bus import ServiceBusBase
 from .client import PubSubClient
 # Event models
 from .events import AllProcessingCompleted, WorkerFailed
+from .idempotency_tracker import IdempotencyTracker
 from .pubsub_message import PubSubMessage
 # Worker utilities
 from .workers import (
@@ -33,4 +34,5 @@ __all__ = [
     # Workers
     "OrchestratorBase",
     "QueueWorkerThread",
+    "IdempotencyTracker"
 ]

@@ -55,15 +55,15 @@ Repository = "https://github.com/venantvr/Python.PubSub.Client.git"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["pubsub*"]
+include = ["python_pubsub_client*"]
 
 [tool.setuptools.package-data]
-pubsub = ["workers/templates/*.html", "workers/templates/*.css", "workers/templates/*.js"]
+python_pubsub_client = ["workers/templates/*.html", "workers/templates/*.css", "workers/templates/*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-addopts = "--cov=pubsub --cov-report=term-missing"
+addopts = "--cov=python_pubsub_client --cov-report=term-missing"
 
 [tool.black]
 line-length = 100

@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 # Import from the installed package
-from pubsub import PubSubClient
+from python_pubsub_client import PubSubClient
 
 # Try to load environment variables from .env file
 try:

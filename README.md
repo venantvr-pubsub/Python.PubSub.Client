@@ -72,7 +72,7 @@ See `.env.example` for all available options.
 ### Basic Usage
 
 ```python
-from pubsub import PubSubClient  # Simple import thanks to __init__.py
+from python_pubsub_client import PubSubClient  # Simple import thanks to __init__.py
 
 # Create client
 client = PubSubClient(
@@ -110,7 +110,7 @@ client.publish(
 
 ```python
 import logging
-from pubsub import PubSubClient
+from python_pubsub_client import PubSubClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -285,7 +285,7 @@ Please ensure:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 🙏 Acknowledgments
 

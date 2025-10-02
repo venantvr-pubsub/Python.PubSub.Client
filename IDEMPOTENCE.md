@@ -35,7 +35,7 @@ Filtre d'idempotence simple basé sur les `message_id`.
 #### Exemple d'utilisation
 
 ```python
-from pubsub.idempotence_filter import IdempotenceFilter
+from python_pubsub_client.idempotence_filter import IdempotenceFilter
 
 # Créer un filtre avec 500 IDs maximum
 filter = IdempotenceFilter(max_size=500)
@@ -80,7 +80,7 @@ Tracker d'idempotence avancé et thread-safe basé sur le hachage du contenu des
 #### Exemple d'utilisation
 
 ```python
-from pubsub.idempotency_tracker import IdempotencyTracker
+from python_pubsub_client.idempotency_tracker import IdempotencyTracker
 
 # Créer un tracker
 tracker = IdempotencyTracker(maxlen=1000)

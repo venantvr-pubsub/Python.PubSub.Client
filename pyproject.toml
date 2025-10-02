@@ -1,9 +1,12 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "python-pubsub-client"
+name = "Python.PubSub.Client"
 version = "0.1.0"
 authors = [
     { name = "venantvr", email = "venantvr@gmail.com" },
@@ -11,8 +14,13 @@ authors = [
 description = "A simple and robust WebSocket Pub/Sub client for Python"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
-keywords = ["pubsub", "websocket", "socketio", "messaging", "client"]
+keywords = [
+    "pubsub",
+    "websocket",
+    "socketio",
+    "messaging",
+    "client",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -25,13 +33,15 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Operating System :: OS Independent",
 ]
-
 dependencies = [
     "python-socketio[client]>=5.10.0",
     "requests>=2.32.0",
     "python-dotenv>=1.1.1",
-    "pydantic>=2.11.9"
+    "pydantic>=2.11.9",
 ]
+
+[project.license]
+text = "MIT"
 
 [project.optional-dependencies]
 dev = [
@@ -45,7 +55,7 @@ dev = [
     "black>=23.0.0",
     "isort>=5.12.0",
     "flake8>=6.0.0",
-    "rich>=14.1.0"
+    "rich>=14.1.0",
 ]
 
 [project.urls]
@@ -54,37 +64,56 @@ Repository = "https://github.com/venantvr/Python.PubSub.Client.git"
 "Bug Tracker" = "https://github.com/venantvr/Python.PubSub.Client/issues"
 
 [tool.setuptools.packages.find]
-where = ["src"]
-include = ["python_pubsub_client*"]
+where = [
+    "src",
+]
+include = [
+    "python_pubsub_client*",
+]
 
 [tool.setuptools.package-data]
-python_pubsub_client = ["workers/templates/*.html", "workers/templates/*.css", "workers/templates/*.js"]
+python_pubsub_client = [
+    "workers/templates/*.html",
+    "workers/templates/*.css",
+    "workers/templates/*.js",
+]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
+testpaths = [
+    "tests",
+]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
 addopts = "--cov=python_pubsub_client --cov-report=term-missing"
 
 [tool.black]
 line-length = 100
-target-version = ['py39']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-    \.git
-  | \.venv
-  | build
-  | dist
-  | \.md$
-)/
-'''
+target-version = [
+    "py39",
+]
+include = "\\.pyi?$"
+extend-exclude = "/(\n    \\.git\n  | \\.venv\n  | build\n  | dist\n  | \\.md$\n)/\n"
 
 [tool.isort]
 profile = "black"
 line_length = 100
-skip_glob = ["*.md"]
+skip_glob = [
+    "*.md",
+]
 
 [tool.flake8]
 max-line-length = 100
-extend-ignore = ["E203", "W503"]
-extend-exclude = ["*.md", ".git", "__pycache__", ".venv", "build", "dist"]
+extend-ignore = [
+    "E203",
+    "W503",
+]
+extend-exclude = [
+    "*.md",
+    ".git",
+    "__pycache__",
+    ".venv",
+    "build",
+    "dist",
+]

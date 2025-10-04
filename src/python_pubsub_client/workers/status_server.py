@@ -4,7 +4,7 @@ import socketserver
 import threading
 import time
 from pathlib import Path
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from ..config import get_env
 from ..logger import logger
@@ -20,7 +20,7 @@ STATUS_PAGE_PORT = int(get_env("STATUS_PAGE_PORT", "8000"))
 class StatusServer(threading.Thread):
     """Un serveur HTTP dédié à l'affichage du statut des workers via une page web dynamique."""
 
-    def __init__(self, services_to_monitor: List['QueueWorkerThread']):
+    def __init__(self, services_to_monitor: List["QueueWorkerThread"]):
         super().__init__(name="StatusServer", daemon=True)
         self.services_to_monitor = services_to_monitor
         self.html_content = "<html><body>Initializing...</body></html>"
@@ -34,7 +34,9 @@ class StatusServer(threading.Thread):
 
     def run(self):
         """Démarre la boucle de génération de contenu et le serveur HTTP."""
-        self.content_generator_thread = threading.Thread(target=self._generate_content_loop, daemon=True)
+        self.content_generator_thread = threading.Thread(
+            target=self._generate_content_loop, daemon=True
+        )
         self.content_generator_thread.start()
         self._start_http_server()
         self._shutdown_complete.set()
@@ -59,11 +61,11 @@ class StatusServer(threading.Thread):
         css_path = template_dir / "status_page.css"
         js_path = template_dir / "status_page.js"
         try:
-            with open(html_path, 'r', encoding='utf-8') as f:
+            with open(html_path, "r", encoding="utf-8") as f:
                 html_template = f.read()
-            with open(css_path, 'r', encoding='utf-8') as f:
+            with open(css_path, "r", encoding="utf-8") as f:
                 css_content = f.read()
-            with open(js_path, 'r', encoding='utf-8') as f:
+            with open(js_path, "r", encoding="utf-8") as f:
                 js_content = f.read()
             return {"html": html_template, "css": css_content, "js": js_content}
         except Exception as e:
@@ -81,8 +83,8 @@ class StatusServer(threading.Thread):
 
         # Génère le HTML final en injectant le contenu CSS et JS dans le template
         html = templates["html"]
-        html = html.replace('$$CSS_CONTENT$$', templates["css"])
-        html = html.replace('$$JS_CONTENT$$', templates["js"])
+        html = html.replace("$$CSS_CONTENT$$", templates["css"])
+        html = html.replace("$$JS_CONTENT$$", templates["js"])
 
         # Met à jour le contenu en cache de manière thread-safe
         with self.content_lock:
@@ -98,13 +100,13 @@ class StatusServer(threading.Thread):
 
             def do_GET(self):
                 try:
-                    if self.path == '/':
+                    if self.path == "/":
                         self.send_response(200)
                         self.send_header("Content-type", "text/html; charset=utf-8")
                         self.end_headers()
                         with parent.content_lock:
                             self.wfile.write(bytes(parent.html_content, "utf8"))
-                    elif self.path == '/status.json':
+                    elif self.path == "/status.json":
                         self.send_response(200)
                         self.send_header("Content-type", "application/json; charset=utf-8")
                         self.end_headers()
@@ -140,7 +142,9 @@ class StatusServer(threading.Thread):
                         logger.error(f"Error in HTTP server loop: {e}", exc_info=True)
 
         except OSError as e:
-            logger.error(f"Unable to start status server on port {STATUS_PAGE_PORT}. Port already in use? Error: {e}")
+            logger.error(
+                f"Unable to start status server on port {STATUS_PAGE_PORT}. Port already in use? Error: {e}"
+            )
             self._server_ready.set()
         except Exception as e:
             logger.error(f"Unexpected error starting HTTP server: {e}", exc_info=True)

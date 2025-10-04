@@ -2,6 +2,7 @@
 ServiceBus de base avec les fonctionnalités essentielles.
 Conçu pour être léger et simple d'utilisation.
 """
+
 import collections
 import inspect
 import threading
@@ -50,11 +51,15 @@ class ServiceBusBase(threading.Thread):
             if event_name not in self._event_schemas:
                 try:
                     type_hints = get_type_hints(subscriber)
-                    event_arg = next(arg for arg in inspect.signature(subscriber).parameters if arg != 'self')
+                    event_arg = next(
+                        arg for arg in inspect.signature(subscriber).parameters if arg != "self"
+                    )
                     event_class = type_hints.get(event_arg)
                     if event_class:
                         self._event_schemas[event_name] = event_class
-                        logger.info(f"Schéma pour '{event_name}' enregistré dynamiquement comme '{event_class.__name__}'.")
+                        logger.info(
+                            f"Schéma pour '{event_name}' enregistré dynamiquement comme '{event_class.__name__}'."
+                        )
                 except Exception as e:
                     logger.warning(
                         f"Impossible de déterminer dynamiquement le schéma pour '{event_name}' à partir de '{subscriber.__name__}': {e}"
@@ -72,7 +77,9 @@ class ServiceBusBase(threading.Thread):
             producer_name: Nom du producteur
         """
         if self.client is None:
-            logger.error(f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré.")
+            logger.error(
+                f"Impossible de publier '{event_name}': le ServiceBus n'a pas encore démarré."
+            )
             return
 
         message = self._prepare_payload(payload, event_name)
@@ -81,10 +88,7 @@ class ServiceBusBase(threading.Thread):
             return
 
         self.client.publish(
-            topic=event_name,
-            message=message,
-            producer=producer_name,
-            message_id=str(uuid.uuid4())
+            topic=event_name, message=message, producer=producer_name, message_id=str(uuid.uuid4())
         )
 
     def _prepare_payload(self, payload: Any, event_name: str) -> Optional[Dict[str, Any]]:
@@ -115,10 +119,15 @@ class ServiceBusBase(threading.Thread):
 
     def run(self):
         """Thread principal du ServiceBus."""
-        logger.info(f"Le thread ServiceBus démarre. Connexion et abonnement aux topics: {list(self._topics)}")
-        self.client = PubSubClient(url=self.url, consumer=self.consumer_name, topics=list(self._topics))
+        logger.info(
+            f"Le thread ServiceBus démarre. Connexion et abonnement aux topics: {list(self._topics)}"
+        )
+        self.client = PubSubClient(
+            url=self.url, consumer=self.consumer_name, topics=list(self._topics)
+        )
 
         for event_name, handler_infos in self._handlers.items():
+
             def create_master_handler(evt_name, handlers_list):
                 def _master_handler(message: Dict[str, Any]):
                     if isinstance(message, str) and message.startswith("Subscribed to"):
@@ -136,7 +145,9 @@ class ServiceBusBase(threading.Thread):
                                 return
                             validated_payload = event_class(**validated_payload)
                         except TypeError as e:
-                            logger.error(f"Erreur validation pour '{evt_name}': {e}. Message: {message}")
+                            logger.error(
+                                f"Erreur validation pour '{evt_name}': {e}. Message: {message}"
+                            )
                             return
 
                     for handler_info in handlers_list:
@@ -145,16 +156,21 @@ class ServiceBusBase(threading.Thread):
                                 topic=evt_name,
                                 message_id=message.get("message_id", str(uuid.uuid4())),
                                 message=message.get("message"),
-                                producer=message.get("producer", "unknown")
+                                producer=message.get("producer", "unknown"),
                             )
 
                             handler_info.handler(validated_payload)
 
                             if self.client:
-                                self.client.notify_consumption(pubsub_msg, handler_info.handler_name)
+                                self.client.notify_consumption(
+                                    pubsub_msg, handler_info.handler_name
+                                )
 
                         except Exception as e:
-                            logger.error(f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{evt_name}': {e}", exc_info=True)
+                            logger.error(
+                                f"Erreur dans l'abonné '{handler_info.handler.__name__}' pour '{evt_name}': {e}",
+                                exc_info=True,
+                            )
 
                 return _master_handler
 

@@ -2,6 +2,7 @@
 Tests unitaires pour ServiceBusBase.
 Tests des fonctionnalités de base : pub/sub, validation schémas, PubSubMessage.
 """
+
 import os
 import sys
 import unittest
@@ -9,14 +10,15 @@ from dataclasses import dataclass
 from unittest.mock import Mock, patch
 
 # Assure que le répertoire 'src' est dans le path pour les imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/src')
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/src")
 
-from python_pubsub_client.base_bus import ServiceBusBase
+from python_pubsub_client.base_bus import ServiceBusBase  # noqa: E402
 
 
 @dataclass
 class TestEvent:
     """Événement de test."""
+
     name: str
     value: int
 
@@ -64,11 +66,11 @@ class TestServiceBusBase(unittest.TestCase):
 
     def test_publish_without_client(self):
         """Test de publication sans client démarré."""
-        with patch('python_pubsub_client.base_bus.logger') as mock_logger:
+        with patch("python_pubsub_client.base_bus.logger") as mock_logger:
             self.service_bus.publish("test.event", {"data": "test"}, "producer")
             mock_logger.error.assert_called_once()
 
-    @patch('python_pubsub_client.base_bus.PubSubClient')
+    @patch("python_pubsub_client.base_bus.PubSubClient")
     def test_publish_with_dataclass(self, mock_client_class):
         """Test de publication avec une dataclass."""
         mock_client = Mock()
@@ -79,11 +81,11 @@ class TestServiceBusBase(unittest.TestCase):
 
         mock_client.publish.assert_called_once()
         call_args = mock_client.publish.call_args
-        self.assertEqual(call_args.kwargs['topic'], "test.event")
-        self.assertEqual(call_args.kwargs['message'], {"name": "test", "value": 42})
-        self.assertEqual(call_args.kwargs['producer'], "producer")
+        self.assertEqual(call_args.kwargs["topic"], "test.event")
+        self.assertEqual(call_args.kwargs["message"], {"name": "test", "value": 42})
+        self.assertEqual(call_args.kwargs["producer"], "producer")
 
-    @patch('python_pubsub_client.base_bus.PubSubClient')
+    @patch("python_pubsub_client.base_bus.PubSubClient")
     def test_publish_with_dict(self, mock_client_class):
         """Test de publication avec un dictionnaire."""
         mock_client = Mock()
@@ -93,12 +95,12 @@ class TestServiceBusBase(unittest.TestCase):
         self.service_bus.publish("test.event", message, "producer")
 
         mock_client.publish.assert_called_once()
-        self.assertEqual(mock_client.publish.call_args.kwargs['message'], message)
+        self.assertEqual(mock_client.publish.call_args.kwargs["message"], message)
 
     def test_publish_with_invalid_type(self):
         """Test de publication avec un type invalide."""
         self.service_bus.client = Mock()
-        with patch('python_pubsub_client.base_bus.logger') as mock_logger:
+        with patch("python_pubsub_client.base_bus.logger") as mock_logger:
             self.service_bus.publish("test.event", "invalid_type", "producer")
             mock_logger.error.assert_called_once()
 
@@ -115,5 +117,5 @@ class TestServiceBusBase(unittest.TestCase):
         self.assertEqual(self.service_bus.name, expected_name)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

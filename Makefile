@@ -27,19 +27,20 @@ test-simple: venv ## Run tests without coverage (minimal dependencies)
 	$(PYTHON) -m unittest discover tests -v
 
 lint: dev ## Run code quality checks
-	$(VENV)/bin/black --check --extend-exclude="*.md" src/ tests/
+	$(VENV)/bin/black --check --extend-exclude=".*\.md$$" src/ tests/
 	$(VENV)/bin/isort --check-only --skip-glob="*.md" src/ tests/
-	$(VENV)/bin/flake8 --extend-exclude="*.md" src/ tests/
+	$(VENV)/bin/flake8 --max-line-length=140 --extend-ignore=E203,W503 --extend-exclude="*.md" src/ tests/
 
 format: dev ## Format code
-	$(VENV)/bin/black --extend-exclude="*.md" src/ tests/
+	$(VENV)/bin/black --extend-exclude=".*\.md$$" src/ tests/
 	$(VENV)/bin/isort --skip-glob="*.md" src/ tests/
 
 clean: ## Clean build artifacts
 	rm -rf build/ dist/ *.egg-info .coverage htmlcov/ .pytest_cache/
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
-build: clean ## Build package
+build: clean dev ## Build package
+	$(PIP) install --upgrade build
 	$(PYTHON) -m build
 
 .DEFAULT_GOAL := help

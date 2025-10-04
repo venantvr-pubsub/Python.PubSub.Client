@@ -3,12 +3,12 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections import deque
-from typing import Optional, List
+from typing import List, Optional
 
-from .status_server import StatusServer
 from ..base_bus import ServiceBusBase
 from ..events import AllProcessingCompleted
 from ..logger import logger
+from .status_server import StatusServer
 
 
 class InternalLogger:
@@ -98,7 +98,9 @@ class QueueWorkerThread(threading.Thread, ABC):
                     method = getattr(self, method_name)
                     method(*args, **kwargs)
                 except Exception as e:
-                    logger.error(f"Error executing task '{method_name}' in '{self.name}': {e}", exc_info=True)
+                    logger.error(
+                        f"Error executing task '{method_name}' in '{self.name}': {e}", exc_info=True
+                    )
                 finally:
                     # Crucial for queue.join() to work!
                     self.work_queue.task_done()
@@ -189,7 +191,7 @@ class OrchestratorBase(ABC):
             all_services.append(self._status_server)
 
         for service in reversed(all_services):
-            if hasattr(service, 'stop') and callable(service.stop):
+            if hasattr(service, "stop") and callable(service.stop):
                 service.stop()
         logger.info("All services have been stopped gracefully.")
 

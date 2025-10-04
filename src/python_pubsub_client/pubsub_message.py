@@ -12,7 +12,7 @@ class PubSubMessage:
 
     @staticmethod
     def new(
-            topic: str, message: Any, producer: str, message_id: Optional[str] = None
+        topic: str, message: Any, producer: str, message_id: Optional[str] = None
     ) -> "PubSubMessage":
         """
         Create a new PubSubMessage instance.

@@ -33,7 +33,7 @@ class IdempotencyTracker:
         """
         # Convert to string representation for hashing
         event_str = str(sorted(event_data.items()) if isinstance(event_data, dict) else event_data)
-        return hashlib.sha256(event_str.encode('utf-8')).hexdigest()
+        return hashlib.sha256(event_str.encode("utf-8")).hexdigest()
 
     def is_duplicate(self, event_data: Any) -> bool:
         """

@@ -32,9 +32,7 @@ def setup_logging() -> None:
     appelée qu'une seule fois au démarrage de l'application.
     """
     log_level = get_env("LOG_LEVEL", "INFO").upper()
-    log_format = get_env(
-        "LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
+    log_format = get_env("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     # Récupère le logger racine pour appliquer la configuration globale
     root_logger = logging.getLogger()

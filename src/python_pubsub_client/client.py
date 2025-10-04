@@ -33,11 +33,11 @@ class HandlerInfo:
         # Note: on utilise self.handler directement ici
         handler_func = self.handler
 
-        if hasattr(handler_func, '__self__'):
+        if hasattr(handler_func, "__self__"):
             return handler_func.__self__.__class__.__name__
 
-        if hasattr(handler_func, '__qualname__'):
-            parts = handler_func.__qualname__.split('.')
+        if hasattr(handler_func, "__qualname__"):
+            parts = handler_func.__qualname__.split(".")
             if len(parts) > 1:
                 return parts[-2]
 
@@ -46,7 +46,14 @@ class HandlerInfo:
 
 class PubSubClient:
 
-    def __init__(self, url: str, consumer: str, topics: List[str], enable_idempotence: bool = False, idempotence_max_size: int = 1000):
+    def __init__(
+        self,
+        url: str,
+        consumer: str,
+        topics: List[str],
+        enable_idempotence: bool = False,
+        idempotence_max_size: int = 1000,
+    ):
         """
         Initialize the PubSub client.
 
@@ -77,7 +84,9 @@ class PubSubClient:
             self._idempotence_filter = IdempotenceFilter(max_size=idempotence_max_size)
 
         # Utiliser un ThreadPoolExecutor pour exécuter les handlers de manière non-bloquante
-        self._handler_executor = ThreadPoolExecutor(max_workers=10, thread_name_prefix=f"{consumer}-handler")
+        self._handler_executor = ThreadPoolExecutor(
+            max_workers=10, thread_name_prefix=f"{consumer}-handler"
+        )
 
         self.socket_client = socketio.Client(
             reconnection=reconnection,
@@ -139,7 +148,9 @@ class PubSubClient:
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"[{self.consumer}] Critical error in queue processing loop: {e}", exc_info=True)
+                logger.error(
+                    f"[{self.consumer}] Critical error in queue processing loop: {e}", exc_info=True
+                )
 
     def _execute_handler(self, handler_info: HandlerInfo, data: Dict[str, Any]):
         """Executes the handler in a dedicated thread and handles logging and consumption notification."""
@@ -164,14 +175,14 @@ class PubSubClient:
             handler_info.handler(message)
 
             pubsub_message = PubSubMessage(
-                topic=topic,
-                message_id=message_id,
-                message=message,
-                producer=data.get("producer")
+                topic=topic, message_id=message_id, message=message, producer=data.get("producer")
             )
             self.notify_consumption(pubsub_message, handler_info.handler_name)
         except Exception as e:
-            logger.error(f"[{self.consumer}] Error in handler '{handler_info.handler_name}' for topic {topic}: {e}", exc_info=True)
+            logger.error(
+                f"[{self.consumer}] Error in handler '{handler_info.handler_name}' for topic {topic}: {e}",
+                exc_info=True,
+            )
 
     def notify_consumption(self, pubsub_message: PubSubMessage, handler_name: str):
         """Notify the server that a message has been consumed."""

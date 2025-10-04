@@ -1,0 +1,356 @@
+Metadata-Version: 2.4
+Name: python_pubsub_client
+Version: 0.1.0
+Summary: A simple and robust WebSocket Pub/Sub client for Python
+Author-email: venantvr <venantvr@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/venantvr/Python.PubSub.Client
+Project-URL: Repository, https://github.com/venantvr/Python.PubSub.Client.git
+Project-URL: Bug Tracker, https://github.com/venantvr/Python.PubSub.Client/issues
+Keywords: pubsub,websocket,socketio,messaging,client
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: python-socketio[client]>=5.10.0
+Requires-Dist: requests>=2.32.0
+Requires-Dist: python-dotenv>=1.1.1
+Requires-Dist: pydantic>=2.11.9
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.11.0; extra == "dev"
+Requires-Dist: coverage>=7.3.0; extra == "dev"
+Requires-Dist: python-dotenv>=1.0.0; extra == "dev"
+Requires-Dist: types-requests>=2.31.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: isort>=5.12.0; extra == "dev"
+Requires-Dist: flake8>=6.0.0; extra == "dev"
+Requires-Dist: rich>=14.1.0; extra == "dev"
+
+# Client Pub/Sub WebSocket en Python
+
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A simple, robust, and production-ready WebSocket Pub/Sub client for Python, built on Socket.IO.
+
+## ✨ Features
+
+- 🔄 **Automatic reconnection** with exponential backoff
+- 📨 **Message queuing** for reliable sequential processing
+- 🎯 **Topic-based subscription** with custom handlers
+- 🔌 **Both publish and subscribe** capabilities
+- 📝 **Comprehensive logging** for debugging
+- 🧪 **Type hints** for better IDE support
+- ⚡ **Async message processing** with threading
+- 🛡️ **Error handling** with graceful degradation
+- 🔁 **Idempotence support** to prevent duplicate message processing
+
+## 📚 Documentation
+
+- [Idempotence Guide](IDEMPOTENCE.md) - Learn about idempotence classes and preventing duplicate message processing
+
+## 📦 Installation
+
+### From PyPI
+
+```bash
+pip install python-pubsub-client
+```
+
+### From Source (Production)
+
+```bash
+git clone https://github.com/venantvr/Python.PubSub.Client.git
+cd Python.PubSub.Client
+pip install .
+```
+
+### Development Installation
+
+```bash
+git clone https://github.com/venantvr/Python.PubSub.Client.git
+cd Python.PubSub.Client
+
+# Install in editable mode with development dependencies
+make dev
+# Or manually:
+pip install -e ".[dev]"
+```
+
+## ⚙️ Configuration
+
+The client can be configured using environment variables. Copy `.env.example` to `.env` and adjust the values:
+
+```bash
+cp .env.example .env
+# Edit .env with your configuration
+```
+
+Key configuration options:
+
+- `PUBSUB_SERVER_URL`: WebSocket server URL (default: `http://localhost:5000`)
+- `PUBSUB_CONSUMER_NAME`: Client identifier (default: `demo-client`)
+- `PUBSUB_TOPICS`: Comma-separated list of topics to subscribe
+- `PUBSUB_LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+
+See `.env.example` for all available options.
+
+## 🚀 Quick Start
+
+### Basic Usage
+
+```python
+from python_pubsub_client import PubSubClient  # Simple import thanks to __init__.py
+
+# Create client
+client = PubSubClient(
+    url="http://localhost:5000",
+    consumer="alice",
+    topics=["notifications", "updates"]
+)
+
+
+# Register message handlers
+def handle_notification(message):
+    print(f"Received notification: {message}")
+
+
+client.register_handler("notifications", handle_notification)
+
+# Start the client
+client.start()
+```
+
+### Publishing Messages
+
+```python
+# Publish a message to a topic
+# noinspection PyUnresolvedReferences
+client.publish(
+    topic="notifications",
+    message={"type": "alert", "content": "Hello World!"},
+    producer="alice",
+    message_id="msg-001"
+)
+```
+
+### Advanced Example
+
+```python
+import logging
+from python_pubsub_client import PubSubClient
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Create client with multiple topics
+client = PubSubClient(
+    url="http://localhost:5000",
+    consumer="service-a",
+    topics=["orders", "inventory", "shipping"]
+)
+
+
+# Define custom handlers for each topic
+def process_order(message):
+    order_id = message.get("order_id")
+    print(f"Processing order: {order_id}")
+    # Your order processing logic here
+
+
+def update_inventory(message):
+    item_id = message.get("item_id")
+    quantity = message.get("quantity")
+    print(f"Updating inventory for item {item_id}: {quantity}")
+    # Your inventory logic here
+
+
+def track_shipping(message):
+    tracking_number = message.get("tracking_number")
+    print(f"Tracking shipment: {tracking_number}")
+    # Your shipping logic here
+
+
+# Register handlers
+client.register_handler("orders", process_order)
+client.register_handler("inventory", update_inventory)
+client.register_handler("shipping", track_shipping)
+
+# Start client (blocking)
+try:
+    client.start()
+except KeyboardInterrupt:
+    print("Shutting down client...")
+```
+
+## 🛠️ Development
+
+### Prerequisites
+
+- Python 3.9 or higher
+- pip and virtualenv
+- Make (optional, for using Makefile commands)
+
+### Setting Up Development Environment
+
+```bash
+# Clone the repository
+git clone https://github.com/venantvr/Python.PubSub.Client.git
+cd Python.PubSub.Client
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install development dependencies
+make dev
+# Or manually:
+pip install -e ".[dev]"
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run specific test file
+pytest tests/test_client.py -v
+```
+
+## 📁 Project Structure
+
+```
+Python.PubSub.Client/
+├── src/
+│   └── pubsub/
+│       ├── __init__.py
+│       ├── pubsub_client.py     # Main client implementation
+│       └── pubsub_message.py    # Message model
+├── tests/
+│   ├── __init__.py
+│   ├── test_client.py
+│   └── test_message.py
+├── examples/
+│   └── simple_client.py         # Example usage
+├── Makefile                      # Development commands
+├── pyproject.toml               # Project configuration (single source of truth)
+└── README.md                    # This file
+```
+
+## 🧪 Testing
+
+The project uses pytest for testing. Tests are located in the `tests/` directory.
+
+```bash
+# Run tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=pubsub --cov-report=html
+```
+
+## 📝 API Reference
+
+### PubSubClient
+
+#### Constructor
+
+```python
+PubSubClient(url: str, consumer: str, topics: List[str])
+```
+
+- `url`: WebSocket server URL
+- `consumer`: Consumer identifier
+- `topics`: List of topics to subscribe to
+
+#### Methods
+
+##### `register_handler(topic: str, handler_func: Callable[[Any], None]) -> None`
+
+Register a callback function for a specific topic.
+
+##### `publish(topic: str, message: Any, producer: str, message_id: str) -> None`
+
+Publish a message to a topic via HTTP POST.
+
+##### `start() -> None`
+
+Start the client and begin listening for messages (blocking).
+
+##### `stop() -> None`
+
+Stop the client gracefully and clean up resources.
+
+### PubSubMessage
+
+#### Constructor
+
+```python
+PubSubMessage.new(topic: str, message: Any, producer: str, message_id: str)
+```
+
+Create a new message instance.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please ensure:
+
+- All tests pass
+- Coverage remains above 80%
+- Documentation is updated as needed
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🙏 Acknowledgments
+
+- Built with [python-socketio](https://python-socketio.readthedocs.io/)
+- Inspired by various Pub/Sub patterns and implementations
+- Thanks to all contributors!
+
+## 📧 Contact
+
+- Author: venantvr
+- Email: venantvr@gmail.com
+- GitHub: [@venantvr](https://github.com/venantvr)
+
+## 🐛 Bug Reports
+
+Please report bugs via [GitHub Issues](https://github.com/venantvr/Python.PubSub.Client/issues).
+
+## 📈 Roadmap
+
+- [ ] Add support for message persistence
+- [ ] Implement message encryption
+- [ ] Add metrics and monitoring
+- [ ] Support for multiple server URLs (failover)
+- [ ] GraphQL subscription support
+- [ ] WebRTC data channel support
+
+---
+
+Made with ❤️ by [venantvr](https://github.com/venantvr)

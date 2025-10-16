@@ -23,7 +23,16 @@ class ServiceBusBase(threading.Thread):
     Fournit les fonctionnalités essentielles sans la complexité additionnelle.
     """
 
-    def __init__(self, url: str, consumer_name: str):
+    def __init__(
+            self,
+            url: str,
+            consumer_name: str,
+            enable_devtools: bool = True,
+            devtools_port: int = 8765,
+            enable_recording: bool = False,
+            devtools_recording_port: int = 5556,
+            recording_session_name: Optional[str] = None
+    ):
         super().__init__(name=f"ServiceBus-{consumer_name}")
         self.daemon = True
         self.url = url
@@ -33,6 +42,30 @@ class ServiceBusBase(threading.Thread):
         self._handlers: Dict[str, list[HandlerInfo]] = collections.defaultdict(list)
         self._event_schemas: Dict[str, type] = {}
         self._schema_lock = threading.Lock()
+        self._devtools_recorder: Optional[Any] = None
+
+        # Auto-start DevTools API for cross-process communication (replay)
+        if enable_devtools:
+            try:
+                from .devtools_api import DevToolsAPI
+
+                self._devtools_api = DevToolsAPI(self, port=devtools_port)
+                self._devtools_api.start()
+            except Exception as e:
+                logger.warning(f"Failed to start DevTools API: {e}")
+
+        # Auto-start DevTools recording proxy
+        if enable_recording:
+            try:
+                from .devtools_recorder_proxy import DevToolsRecorderProxy
+
+                self._devtools_recorder = DevToolsRecorderProxy(
+                    devtools_host='localhost',
+                    devtools_port=devtools_recording_port
+                )
+                self._devtools_recorder.start_session(recording_session_name)
+            except Exception as e:
+                logger.warning(f"Failed to start DevTools recording: {e}")
 
     def subscribe(self, event_name: str, subscriber: Callable):
         """
@@ -86,6 +119,13 @@ class ServiceBusBase(threading.Thread):
 
         if message is None:
             return
+
+        # Envoyer à DevTools pour enregistrement si activé
+        if self._devtools_recorder:
+            try:
+                self._devtools_recorder.record_event(event_name, message, producer_name)
+            except Exception as e:
+                logger.debug(f"Failed to record event to DevTools: {e}")
 
         self.client.publish(
             topic=event_name, message=message, producer=producer_name, message_id=str(uuid.uuid4())
@@ -184,8 +224,26 @@ class ServiceBusBase(threading.Thread):
             logger.error(f"Le client Pub/Sub s'est arrêté avec une erreur : {e}")
         logger.info("ServiceBus arrêté.")
 
+    def stop_recording(self) -> bool:
+        """Arrête l'enregistrement DevTools et sauvegarde le fichier.
+
+        Returns:
+            True si succès, False sinon
+        """
+        if self._devtools_recorder:
+            return self._devtools_recorder.stop_session()
+        return False
+
     def stop(self):
         """Arrête le ServiceBus."""
         logger.info("Demande d'arrêt pour ServiceBus.")
+
+        # Arrêter l'enregistrement si activé
+        if self._devtools_recorder:
+            try:
+                self._devtools_recorder.stop_session()
+            except Exception as e:
+                logger.warning(f"Failed to stop DevTools recording: {e}")
+
         if self.client:
             self.client.stop()

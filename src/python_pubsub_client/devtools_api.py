@@ -13,7 +13,7 @@ from typing import Any, TYPE_CHECKING
 from flask import Flask, request, jsonify
 
 if TYPE_CHECKING:
-    from .service_bus import ServiceBus
+    from .base_bus import ServiceBusBase as ServiceBus
 
 
 class DevToolsAPI:

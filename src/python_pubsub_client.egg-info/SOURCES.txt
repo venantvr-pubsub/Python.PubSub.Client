@@ -6,6 +6,7 @@ src/python_pubsub_client/base_bus.py
 src/python_pubsub_client/client.py
 src/python_pubsub_client/config.py
 src/python_pubsub_client/devtools_api.py
+src/python_pubsub_client/devtools_player_proxy.py
 src/python_pubsub_client/devtools_recorder_proxy.py
 src/python_pubsub_client/events.py
 src/python_pubsub_client/idempotence_filter.py

@@ -31,7 +31,8 @@ class ServiceBusBase(threading.Thread):
             devtools_port: int = 8765,
             enable_recording: bool = False,
             devtools_recording_port: int = 5556,
-            recording_session_name: Optional[str] = None
+            recording_session_name: Optional[str] = None,
+            enable_replay: bool = False
     ):
         super().__init__(name=f"ServiceBus-{consumer_name}")
         self.daemon = True
@@ -43,6 +44,7 @@ class ServiceBusBase(threading.Thread):
         self._event_schemas: Dict[str, type] = {}
         self._schema_lock = threading.Lock()
         self._devtools_recorder: Optional[Any] = None
+        self._devtools_player: Optional[Any] = None
 
         # Auto-start DevTools API for cross-process communication (replay)
         if enable_devtools:
@@ -66,6 +68,21 @@ class ServiceBusBase(threading.Thread):
                 self._devtools_recorder.start_session(recording_session_name)
             except Exception as e:
                 logger.warning(f"Failed to start DevTools recording: {e}")
+
+        # Auto-start DevTools player proxy for event replay
+        if enable_replay:
+            try:
+                from .devtools_player_proxy import DevToolsPlayerProxy
+
+                self._devtools_player = DevToolsPlayerProxy(
+                    publish_callback=lambda event_name, payload, producer: self.publish(event_name, payload, producer),
+                    consumer_name=consumer_name,
+                    devtools_host='localhost',
+                    devtools_port=devtools_recording_port
+                )
+                self._devtools_player.start()
+            except Exception as e:
+                logger.warning(f"Failed to start DevTools player: {e}")
 
     def subscribe(self, event_name: str, subscriber: Callable):
         """
@@ -244,6 +261,13 @@ class ServiceBusBase(threading.Thread):
                 self._devtools_recorder.stop_session()
             except Exception as e:
                 logger.warning(f"Failed to stop DevTools recording: {e}")
+
+        # Désenregistrer le player si activé
+        if self._devtools_player:
+            try:
+                self._devtools_player.unregister()
+            except Exception as e:
+                logger.warning(f"Failed to unregister DevTools player: {e}")
 
         if self.client:
             self.client.stop()

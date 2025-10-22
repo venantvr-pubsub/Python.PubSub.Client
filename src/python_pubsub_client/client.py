@@ -137,8 +137,14 @@ class PubSubClient:
                 data = self.message_queue.get(timeout=1.0)
                 topic = data.get("topic")
 
+                # Chercher un handler exact pour ce topic
                 if topic in self.handlers:
                     handler_info = self.handlers[topic]
+                    # Soumettre l'exécution du handler au pool pour ne pas bloquer cette boucle
+                    self._handler_executor.submit(self._execute_handler, handler_info, data)
+                # Sinon, chercher un handler wildcard "*"
+                elif "*" in self.handlers:
+                    handler_info = self.handlers["*"]
                     # Soumettre l'exécution du handler au pool pour ne pas bloquer cette boucle
                     self._handler_executor.submit(self._execute_handler, handler_info, data)
                 else:

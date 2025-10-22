@@ -7,14 +7,47 @@ import collections
 import inspect
 import threading
 import uuid
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, dataclass
 from typing import Any, Callable, Dict, Optional, get_type_hints
 
 from pydantic import BaseModel
+from python_pubsub_devtools_consumers import DevToolsRecorderProxy, DevToolsPlayerProxy
 
 from .client import HandlerInfo, PubSubClient
 from .logger import logger
 from .pubsub_message import PubSubMessage
+
+
+@dataclass
+class EventRecorderConfig:
+    """Configuration pour l'enregistrement des événements."""
+    enable_recording: bool = False
+    devtools_recording_port: int = 5556
+    recording_session_name: Optional[str] = None
+    enable_replay: bool = False
+
+
+@dataclass
+class MockExchangeConfig:
+    """Configuration pour le mock exchange."""
+    enable_mock: bool = False
+    mock_port: int = 5557
+
+
+@dataclass
+class DevToolsConfig:
+    """Configuration complète pour DevTools."""
+    enable_devtools: bool = True
+    devtools_port: int = 8765
+    event_recorder: EventRecorderConfig = None
+    mock_exchange: MockExchangeConfig = None
+
+    def __post_init__(self):
+        # Initialiser les sous-configs avec des valeurs par défaut si None
+        if self.event_recorder is None:
+            self.event_recorder = EventRecorderConfig()
+        if self.mock_exchange is None:
+            self.mock_exchange = MockExchangeConfig()
 
 
 class ServiceBusBase(threading.Thread):
@@ -27,12 +60,7 @@ class ServiceBusBase(threading.Thread):
             self,
             url: str,
             consumer_name: str,
-            enable_devtools: bool = True,
-            devtools_port: int = 8765,
-            enable_recording: bool = False,
-            devtools_recording_port: int = 5556,
-            recording_session_name: Optional[str] = None,
-            enable_replay: bool = False
+            devtools_config: Optional[DevToolsConfig] = None
     ):
         super().__init__(name=f"ServiceBus-{consumer_name}")
         self.daemon = True
@@ -45,44 +73,81 @@ class ServiceBusBase(threading.Thread):
         self._schema_lock = threading.Lock()
         self._devtools_recorder: Optional[Any] = None
         self._devtools_player: Optional[Any] = None
+        self._mock_exchange_proxy: Optional[Any] = None
+
+        # Si devtools_config est None, on ne fait rien
+        if devtools_config is None:
+            return
 
         # Auto-start DevTools API for cross-process communication (replay)
-        if enable_devtools:
+        if devtools_config.enable_devtools:
             try:
                 from .devtools_api import DevToolsAPI
 
-                self._devtools_api = DevToolsAPI(self, port=devtools_port)
+                self._devtools_api = DevToolsAPI(self, port=devtools_config.devtools_port)
                 self._devtools_api.start()
             except Exception as e:
                 logger.warning(f"Failed to start DevTools API: {e}")
 
-        # Auto-start DevTools recording proxy
-        if enable_recording:
-            try:
-                from .devtools_recorder_proxy import DevToolsRecorderProxy
+        # Configuration de l'enregistrement d'événements
+        event_recorder = devtools_config.event_recorder
 
+        # Auto-start DevTools recording proxy
+        if event_recorder.enable_recording:
+            try:
                 self._devtools_recorder = DevToolsRecorderProxy(
-                    devtools_host='localhost',
-                    devtools_port=devtools_recording_port
+                    devtools_url=f'http://localhost:{event_recorder.devtools_recording_port}'
                 )
-                self._devtools_recorder.start_session(recording_session_name)
+                self._devtools_recorder.start_session(event_recorder.recording_session_name)
             except Exception as e:
                 logger.warning(f"Failed to start DevTools recording: {e}")
 
         # Auto-start DevTools player proxy for event replay
-        if enable_replay:
+        if event_recorder.enable_replay:
             try:
-                from .devtools_player_proxy import DevToolsPlayerProxy
+                def handle_replayed_event(event_name: str, event_data: dict, source: str) -> bool:
+                    """Handler simple qui publie l'événement rejoué."""
+                    try:
+                        self.publish(event_name, event_data, source)
+                        return True
+                    except Exception as e:
+                        logger.error(f"Failed to publish replayed event: {e}")
+                        return False
 
-                self._devtools_player = DevToolsPlayerProxy(
-                    publish_callback=lambda event_name, payload, producer: self.publish(event_name, payload, producer),
+                self.proxy = DevToolsPlayerProxy(
                     consumer_name=consumer_name,
-                    devtools_host='localhost',
-                    devtools_port=devtools_recording_port
+                    event_handler=handle_replayed_event,
+                    devtools_url=f'http://localhost:{event_recorder.devtools_recording_port}'
                 )
+                self._devtools_player = self.proxy
                 self._devtools_player.start()
             except Exception as e:
                 logger.warning(f"Failed to start DevTools player: {e}")
+
+        # Configuration du mock exchange
+        mock_exchange = devtools_config.mock_exchange
+
+        # Auto-start Mock Exchange pour publier les chandeliers
+        if mock_exchange.enable_mock:
+            try:
+                def handle_mock_exchange_event(event_name: str, event_data: dict, source: str) -> bool:
+                    """Handler pour recevoir et publier les événements du mock exchange."""
+                    try:
+                        self.publish(event_name, event_data, source)
+                        return True
+                    except Exception as ex:
+                        logger.error(f"Failed to publish mock exchange event: {ex}")
+                        return False
+
+                self._mock_exchange_proxy = DevToolsPlayerProxy(
+                    consumer_name=f"{consumer_name}_mock_exchange",
+                    event_handler=handle_mock_exchange_event,
+                    devtools_url=f'http://localhost:{mock_exchange.mock_port}'
+                )
+                self._mock_exchange_proxy.start()
+                logger.info(f"Mock exchange proxy started on port {mock_exchange.mock_port}")
+            except Exception as e:
+                logger.warning(f"Failed to start Mock Exchange proxy: {e}")
 
     def subscribe(self, event_name: str, subscriber: Callable):
         """
@@ -268,6 +333,13 @@ class ServiceBusBase(threading.Thread):
                 self._devtools_player.unregister()
             except Exception as e:
                 logger.warning(f"Failed to unregister DevTools player: {e}")
+
+        # Désenregistrer le mock exchange proxy si activé
+        if self._mock_exchange_proxy:
+            try:
+                self._mock_exchange_proxy.unregister()
+            except Exception as e:
+                logger.warning(f"Failed to unregister Mock Exchange proxy: {e}")
 
         if self.client:
             self.client.stop()

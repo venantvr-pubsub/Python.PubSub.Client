@@ -5,7 +5,7 @@ Pub/Sub servers, with automatic reconnection, message queuing,
 and topic-based subscription support.
 """
 
-from .base_bus import ServiceBusBase
+from .base_bus import ServiceBusBase, DevToolsConfig, EventRecorderConfig, MockExchangeConfig
 
 # Core components
 from .client import PubSubClient
@@ -31,6 +31,10 @@ __all__ = [
     "ServiceBusBase",
     "PubSubClient",
     "PubSubMessage",
+    # Configuration
+    "DevToolsConfig",
+    "EventRecorderConfig",
+    "MockExchangeConfig",
     # Events
     "AllProcessingCompleted",
     "WorkerFailed",

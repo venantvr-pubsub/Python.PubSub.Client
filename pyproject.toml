@@ -39,6 +39,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "pydantic>=2.11.9",
     "flask>=2.0.0",
+    "-e ../Python.PubSub.DevTools.Consumers",
 ]
 
 [project.license]

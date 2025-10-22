@@ -47,12 +47,12 @@ class HandlerInfo:
 class PubSubClient:
 
     def __init__(
-        self,
-        url: str,
-        consumer: str,
-        topics: List[str],
-        enable_idempotence: bool = False,
-        idempotence_max_size: int = 1000,
+            self,
+            url: str,
+            consumer: str,
+            topics: List[str],
+            enable_idempotence: bool = False,
+            idempotence_max_size: int = 1000,
     ):
         """
         Initialize the PubSub client.

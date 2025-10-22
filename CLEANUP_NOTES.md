@@ -2,14 +2,17 @@
 
 ## Fichiers Obsolètes
 
-Les fichiers suivants dans `src/python_pubsub_client/` sont maintenant obsolètes car leur fonctionnalité a été déplacée vers la librairie `python-pubsub-devtools-consumers` :
+Les fichiers suivants dans `src/python_pubsub_client/` sont maintenant obsolètes car leur fonctionnalité a été déplacée vers la librairie
+`python-pubsub-devtools-consumers` :
 
 ### 1. devtools_player_proxy.py
+
 **Statut:** Obsolète
 **Remplacement:** `python_pubsub_devtools_consumers.DevToolsPlayerProxy`
 **Action recommandée:** Peut être supprimé
 
 ### 2. devtools_recorder_proxy.py
+
 **Statut:** Obsolète
 **Remplacement:** `python_pubsub_devtools_consumers.DevToolsRecorderProxy`
 **Action recommandée:** Peut être supprimé
@@ -17,8 +20,10 @@ Les fichiers suivants dans `src/python_pubsub_client/` sont maintenant obsolète
 ## Fichiers Mis à Jour
 
 ### base_bus.py
+
 **Statut:** Mis à jour ✓
 **Changements:**
+
 - Imports modifiés pour utiliser `python_pubsub_devtools_consumers`
 - Configuration mise à jour pour utiliser `devtools_url` au lieu de `devtools_host` et `devtools_port`
 

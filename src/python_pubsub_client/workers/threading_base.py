@@ -5,10 +5,10 @@ from abc import ABC, abstractmethod
 from collections import deque
 from typing import List, Optional
 
+from .status_server import StatusServer
 from ..base_bus import ServiceBusBase
 from ..events import AllProcessingCompleted
 from ..logger import logger
-from .status_server import StatusServer
 
 
 class InternalLogger:

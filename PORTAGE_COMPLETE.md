@@ -11,6 +11,7 @@ Le projet **Python.PubSub.Client** a été complètement porté pour utiliser la
 ### 1. Dépendances (pyproject.toml)
 
 **Ajouté :**
+
 ```toml
 dependencies = [
     # ... autres dépendances
@@ -20,6 +21,7 @@ dependencies = [
 
 **Statut :** ✅ Ajouté et installé
 **Vérification :**
+
 ```bash
 $ pip list | grep python-pubsub-devtools-consumers
 python-pubsub-devtools-consumers 0.1.0
@@ -28,11 +30,13 @@ python-pubsub-devtools-consumers 0.1.0
 ### 2. Code Source (base_bus.py)
 
 **Changements :**
+
 - ✅ Import mis à jour : `from python_pubsub_devtools_consumers import DevToolsPlayerProxy, DevToolsRecorderProxy`
 - ✅ Configuration du recorder : utilise maintenant `devtools_url` au lieu de `devtools_host` et `devtools_port`
 - ✅ Configuration du player : utilise maintenant `devtools_url` au lieu de `devtools_host` et `devtools_port`
 
 **Avant :**
+
 ```python
 from .devtools_recorder_proxy import DevToolsRecorderProxy
 from .devtools_player_proxy import DevToolsPlayerProxy
@@ -51,6 +55,7 @@ self._devtools_player = DevToolsPlayerProxy(
 ```
 
 **Après :**
+
 ```python
 from python_pubsub_devtools_consumers import DevToolsPlayerProxy, DevToolsRecorderProxy
 
@@ -73,6 +78,7 @@ Les anciens fichiers locaux ont été supprimés car ils sont maintenant fournis
 - ✅ `src/python_pubsub_client/devtools_recorder_proxy.py` - SUPPRIMÉ
 
 **Vérification :**
+
 ```bash
 $ ls src/python_pubsub_client/ | grep devtools
 devtools_api.py  # Seul ce fichier reste (et c'est normal)
@@ -89,12 +95,14 @@ devtools_api.py  # Seul ce fichier reste (et c'est normal)
 ## 🧪 Tests de Validation
 
 ### Test 1 : Import du ServiceBusBase
+
 ```python
 from python_pubsub_client.base_bus import ServiceBusBase
 # ✅ Réussi
 ```
 
 ### Test 2 : Instanciation avec Recorder
+
 ```python
 bus = ServiceBusBase(
     url='http://localhost:8080',
@@ -108,6 +116,7 @@ bus = ServiceBusBase(
 ```
 
 ### Test 3 : Instanciation avec Player
+
 ```python
 bus = ServiceBusBase(
     url='http://localhost:8080',
@@ -121,6 +130,7 @@ bus = ServiceBusBase(
 ```
 
 ### Test 4 : Vérification des Modules
+
 ```python
 assert 'python_pubsub_devtools_consumers' in type(bus._devtools_recorder).__module__
 assert 'python_pubsub_devtools_consumers' in type(bus._devtools_player).__module__
@@ -132,6 +142,7 @@ assert 'python_pubsub_devtools_consumers' in type(bus._devtools_player).__module
 ## 📊 État des Fichiers
 
 ### Fichiers du Client (src/python_pubsub_client/)
+
 ```
 ✅ base_bus.py           - Mis à jour pour utiliser la nouvelle librairie
 ✅ client.py             - Aucun changement nécessaire
@@ -148,6 +159,7 @@ assert 'python_pubsub_devtools_consumers' in type(bus._devtools_player).__module
 ```
 
 ### Fichiers de Configuration
+
 ```
 ✅ pyproject.toml        - Dépendance ajoutée
 ✅ CLEANUP_NOTES.md      - Documentation créée
@@ -159,19 +171,23 @@ assert 'python_pubsub_devtools_consumers' in type(bus._devtools_player).__module
 ## 🎯 Avantages du Portage
 
 ### 1. Réduction de Code
+
 - **Avant :** ~400 lignes de code dupliqué dans le client
 - **Après :** 0 lignes (utilise la librairie)
 - **Gain :** Moins de maintenance, moins de bugs potentiels
 
 ### 2. Réutilisabilité
+
 - La librairie `python-pubsub-devtools-consumers` peut maintenant être utilisée dans d'autres projets
 - Configuration flexible et injectable
 
 ### 3. Maintenabilité
+
 - Une seule source de vérité pour la logique DevTools
 - Bugs corrigés une seule fois, bénéficient à tous les projets
 
 ### 4. Fonctionnalités Améliorées
+
 - ✅ Port automatique ou fixe (configurable)
 - ✅ Tous les endpoints configurables
 - ✅ URLs complètement injectables
@@ -211,6 +227,7 @@ bus = ServiceBusBase(
 ## 📚 Documentation
 
 Pour plus d'informations sur la librairie :
+
 - **README :** `/path/to/Python.PubSub.DevTools.Consumers/README.md`
 - **Guide de migration :** `/path/to/Python.PubSub.DevTools.Consumers/MIGRATION.md`
 - **Exemples :** `/path/to/Python.PubSub.DevTools.Consumers/examples/simple_usage.py`
@@ -220,6 +237,7 @@ Pour plus d'informations sur la librairie :
 ## ✨ Conclusion
 
 Le portage est **100% complet et fonctionnel** :
+
 - ✅ Dépendances ajoutées
 - ✅ Code mis à jour
 - ✅ Anciens fichiers supprimés

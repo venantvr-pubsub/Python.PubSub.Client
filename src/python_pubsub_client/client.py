@@ -141,12 +141,12 @@ class PubSubClient:
                 if topic in self.handlers:
                     handler_info = self.handlers[topic]
                     # Soumettre l'exécution du handler au pool pour ne pas bloquer cette boucle
-                    self._handler_executor.submit(self._execute_handler, handler_info, data)
+                    self._handler_executor.submit(self._execute_handler, handler_info, data, is_wildcard=False)
                 # Sinon, chercher un handler wildcard "*"
                 elif "*" in self.handlers:
                     handler_info = self.handlers["*"]
                     # Soumettre l'exécution du handler au pool pour ne pas bloquer cette boucle
-                    self._handler_executor.submit(self._execute_handler, handler_info, data)
+                    self._handler_executor.submit(self._execute_handler, handler_info, data, is_wildcard=True)
                 else:
                     logger.warning(f"[{self.consumer}] No handler for topic {topic}.")
 
@@ -158,11 +158,17 @@ class PubSubClient:
                     f"[{self.consumer}] Critical error in queue processing loop: {e}", exc_info=True
                 )
 
-    def _execute_handler(self, handler_info: HandlerInfo, data: Dict[str, Any]):
-        """Executes the handler in a dedicated thread and handles logging and consumption notification."""
+    def _execute_handler(self, handler_info: HandlerInfo, data: Dict[str, Any], is_wildcard: bool = False):
+        """Executes the handler in a dedicated thread and handles logging and consumption notification.
+
+        :param handler_info: Handler information
+        :param data: Complete message data (topic, message, producer, message_id)
+        :param is_wildcard: True if this is a wildcard handler, enriches JSON payload with metadata
+        """
         topic = data.get("topic")
         message = data.get("message")
         message_id = data.get("message_id")
+        producer = data.get("producer")
 
         # Vérifier l'idempotence si activée
         if self._idempotence_filter is not None:
@@ -176,9 +182,21 @@ class PubSubClient:
         try:
             logger.info(
                 f"[{self.consumer}] Processing message from topic [{BLACK_ON_YELLOW}{topic}{RESET}]: "
-                f" (from {data.get('producer')}, ID={message_id})"
+                f" (from {producer}, ID={message_id})"
             )
-            handler_info.handler(message)
+
+            # Pour les handlers wildcard, enrichir le payload avec les métadonnées si c'est un dict JSON
+            if is_wildcard and isinstance(message, dict):
+                enriched_message = {
+                    "topic": topic,
+                    "message": message,
+                    "producer": producer,
+                    "message_id": message_id
+                }
+                handler_info.handler(enriched_message)
+            else:
+                # Comportement normal : passer seulement le payload
+                handler_info.handler(message)
 
             pubsub_message = PubSubMessage(
                 topic=topic, message_id=message_id, message=message, producer=data.get("producer")

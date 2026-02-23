@@ -318,4 +318,4 @@ Made with ❤️ by [venantvr](https://github.com/venantvr)
 
 ## Stack
 
-[![Stack](https://skillicons.dev/icons?i=py,graphql,js,git&theme=dark)](https://skillicons.dev)
+[![Stack](https://skillicons.dev/icons?i=py,graphql,js&theme=dark)](https://skillicons.dev)
